@@ -24,7 +24,7 @@ A single-user resume generation system. It stores a superset knowledge base of e
 3. PDF templates must NEVER contain tables, columns, headers, footers, graphics, or images. Fonts limited to Helvetica and Times-Roman, size 10 to 12. These rules exist for ATS compliance and are not negotiable.
 4. Single PDF template only. Do not build a template abstraction layer, template registry, or theming system. That is deferred to commercialization.
 5. All DeepSeek output must pass a Zod schema before it is stored, rendered, or used in a PDF. If validation fails, fall back to the unmodified profile content. Never render raw LLM output.
-6. DeepSeek must never invent facts. Prompts must instruct it to rephrase and reorder existing profile content only. Any employer, title, date, degree, or skill not present in the profile is a bug.
+6. DeepSeek must never invent facts, at extraction or at tailoring time. During import (Phase 3.5), it may only extract skeleton and fact candidates that are traceable to the source resume text. During tailoring (Phase 6), it may only select and phrase facts already present in the knowledge base, never invent employers, titles, dates, degrees, or skills at either the selection or the phrasing step. Any such value not traceable to the source text or the knowledge base is a bug.
 7. atsScore is computed by the scoring engine and stored as a snapshot (score, ruleset version, timestamp). It is never accepted as user input and never editable.
 8. No job board URL scraping. Job descriptions arrive as pasted text or uploaded files only.
 9. PDF generation is client-side in the browser. Do not move it into an API route or serverless function (Vercel 10s timeout risk).
