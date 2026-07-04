@@ -1,4 +1,10 @@
-import type { ProfileContent, ProfileHeader } from "@/types/profile";
+import type { ProfileHeader, Skeleton } from "@/types/profile";
+
+type FactForRendering = {
+  text: string;
+  roleRef: string | null;
+  tags: string[] | null;
+};
 
 function dateRange(startDate: string, endDate: string): string {
   if (!startDate && !endDate) return "";
@@ -8,7 +14,8 @@ function dateRange(startDate: string, endDate: string): string {
 
 export function renderProfileMarkdown(
   header: ProfileHeader,
-  content: ProfileContent,
+  skeleton: Skeleton,
+  facts: FactForRendering[],
 ): string {
   const lines: string[] = [];
 
@@ -22,50 +29,61 @@ export function renderProfileMarkdown(
   ].filter(Boolean);
   if (contactParts.length > 0) lines.push(contactParts.join(" | "));
 
-  if (content.summary) {
-    lines.push("", "## Summary", content.summary);
-  }
-
-  if (content.experience.length > 0) {
+  if (skeleton.roles.length > 0) {
     lines.push("", "## Experience");
-    for (const entry of content.experience) {
-      const heading = [entry.title, entry.company].filter(Boolean).join(", ");
-      const range = dateRange(entry.startDate, entry.endDate);
+    for (const role of skeleton.roles) {
+      const heading = [role.title, role.employer].filter(Boolean).join(", ");
+      const range = dateRange(role.startDate, role.endDate);
       lines.push(
         "",
-        `### ${heading}${entry.location ? ` (${entry.location})` : ""}`,
+        `### ${heading}${role.location ? ` (${role.location})` : ""}`,
       );
       if (range) lines.push(range);
-      for (const bullet of entry.bullets) {
-        lines.push(`- ${bullet}`);
+      const roleFacts = facts.filter((f) => f.roleRef === role.id);
+      for (const fact of roleFacts) {
+        lines.push(`- ${fact.text}`);
       }
     }
   }
 
-  if (content.education.length > 0) {
+  if (skeleton.education.length > 0) {
     lines.push("", "## Education");
-    for (const entry of content.education) {
+    for (const entry of skeleton.education) {
       const heading = [entry.degree, entry.institution]
         .filter(Boolean)
         .join(", ");
-      const range = dateRange(entry.startDate, entry.endDate);
       lines.push("", `### ${heading}`);
-      if (range) lines.push(range);
-      if (entry.details) lines.push(entry.details);
+      const parts = [entry.field, entry.year].filter(Boolean).join(", ");
+      if (parts) lines.push(parts);
     }
   }
 
-  if (content.skills.length > 0) {
-    lines.push("", "## Skills", content.skills.join(", "));
+  if (skeleton.certifications.length > 0) {
+    lines.push("", "## Certifications");
+    for (const cert of skeleton.certifications) {
+      const parts = [cert.name, cert.issuer, cert.year]
+        .filter(Boolean)
+        .join(", ");
+      lines.push(`- ${parts}`);
+    }
   }
 
-  if (content.projects.length > 0) {
-    lines.push("", "## Projects");
-    for (const entry of content.projects) {
-      lines.push("", `### ${entry.name}${entry.link ? ` (${entry.link})` : ""}`);
-      if (entry.description) lines.push(entry.description);
-      for (const bullet of entry.bullets) {
-        lines.push(`- ${bullet}`);
+  const unattachedFacts = facts.filter((f) => !f.roleRef);
+  if (unattachedFacts.length > 0) {
+    const byTag = new Map<string, FactForRendering[]>();
+    for (const fact of unattachedFacts) {
+      const tags = fact.tags && fact.tags.length > 0 ? fact.tags : ["General"];
+      for (const tag of tags) {
+        if (!byTag.has(tag)) byTag.set(tag, []);
+        byTag.get(tag)!.push(fact);
+      }
+    }
+
+    lines.push("", "## Additional Highlights");
+    for (const [tag, tagFacts] of byTag) {
+      lines.push("", `### ${tag}`);
+      for (const fact of tagFacts) {
+        lines.push(`- ${fact.text}`);
       }
     }
   }

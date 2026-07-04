@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 3 complete on branch phase-3-profile. Not yet merged to main.
+Phase 3.5 complete on branch phase-3-5-knowledge-base. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,29 @@ Phase 3 complete on branch phase-3-profile. Not yet merged to main.
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-04
+**Phase:** 3.5 - Knowledge base ingestion and fact pool
+**Branch:** phase-3-5-knowledge-base
+
+**Completed:**
+- Folded PLAN-AMENDMENT-1.md into PLAN.md (new Phase 3.5 section, amended Phase 6) and CLAUDE.md (updated project description, new hard rules 13 and 14, rule 6 rewritten to cover both extraction and tailoring); PLAN-AMENDMENT-1.md deleted once merged
+- Data model redesigned: profiles.content slimmed to a verified skeleton only (roles, education, certifications), with a new facts table (text, roleRef, tags, source, timestamps) added via Drizzle migration and applied to Neon
+- Existing Phase 3 test profile (real career history entered during that session's testing) wiped at the user's explicit choice rather than migrated, since profiles.content's shape changed incompatibly
+- DeepSeek extraction rewritten (src/lib/ai/extract-knowledge.ts): separate paths for first import (header plus skeleton plus facts) and subsequent imports (skeleton plus facts only, header never re-extracted), both Zod validated with a manual fallback on any failure
+- Import flow reworked end to end: resume text is extracted into candidates, then reviewed in a new reconciliation UI (src/components/forms/ImportReview.tsx) before anything is saved. Exact-duplicate roles, education, certifications, and facts are auto-detected (case-insensitive field match, src/lib/knowledge-merge.ts) and skipped automatically; everything else is shown as a checkbox the user can include or exclude, approved via a new merge endpoint (src/app/api/profile/merge/route.ts) that never overwrites existing skeleton or facts, only appends
+- "Add fact" quick-entry UI (src/components/forms/AddFact.tsx) and a facts list with delete (src/components/forms/FactsList.tsx), backed by src/app/api/facts/route.ts and src/app/api/facts/[id]/route.ts
+- Markdown rendering rewritten (src/lib/profile-markdown.ts) to the new structure: header, then roles with their attached facts as bullets, then education, then certifications, then unattached facts grouped by tag
+- ProfileEditor rewritten for the new shape: header plus roles, education, and certifications (no more summary, bullets, skills, or projects on this form, since those now live in the fact pool)
+- Verified: a forced-malformed AI response falls back cleanly with a manual-entry notice and no crash; importing a second, different resume on top of the first produced a working reconciliation review and a successful merge with real data
+- Known gap found during real-data testing: duplicate detection is exact-match only (per the amendment's explicit scope cut), so near-duplicate roles or facts with slightly different wording are not caught and can be added twice if the user does not notice during review. Deferred to Phase 3.6
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None. Phase 3.6 (better duplicate detection) is optional future work, not blocking Phase 4.
+
+**Next step:** Open a new session for Phase 4 (job description intake and keywords). Merge phase-3-5-knowledge-base into main first per the one-branch-per-phase rule.
 
 ---
 

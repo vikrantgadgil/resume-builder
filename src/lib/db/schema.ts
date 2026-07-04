@@ -100,6 +100,21 @@ export const profiles = pgTable("profile", {
   updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
 });
 
+export const facts = pgTable("fact", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  text: text("text").notNull(),
+  roleRef: text("roleRef"),
+  tags: text("tags").array(),
+  source: text("source").notNull(),
+  createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+});
+
 export const applications = pgTable("application", {
   id: text("id")
     .primaryKey()

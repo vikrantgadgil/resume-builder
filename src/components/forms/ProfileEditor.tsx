@@ -1,17 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { renderProfileMarkdown } from "@/lib/profile-markdown";
 import {
-  emptyContent,
   emptyHeader,
-  type EducationEntry,
-  type ExperienceEntry,
-  type ProfileContent,
+  emptySkeleton,
+  type Certification,
+  type Education,
   type ProfileHeader,
-  type ProjectEntry,
+  type Role,
+  type Skeleton,
 } from "@/types/profile";
 
 function TextField({
@@ -36,144 +34,113 @@ function TextField({
   );
 }
 
-function TextAreaField({
-  label,
-  value,
-  onChange,
-  rows = 3,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  rows?: number;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-zinc-600 dark:text-zinc-400">{label}</span>
-      <Textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={rows}
-        className="resize-y"
-      />
-    </label>
-  );
-}
-
 export function ProfileEditor({
   initialHeader,
-  initialContent,
+  initialSkeleton,
   onSaved,
 }: {
   initialHeader?: ProfileHeader;
-  initialContent?: ProfileContent;
-  onSaved?: () => void;
+  initialSkeleton?: Skeleton;
+  onSaved?: (skeleton: Skeleton) => void;
 }) {
   const [header, setHeader] = useState<ProfileHeader>(
     initialHeader ?? emptyHeader(),
   );
-  const [content, setContent] = useState<ProfileContent>(
-    initialContent ?? emptyContent(),
-  );
-  const [skillsText, setSkillsText] = useState(
-    (initialContent ?? emptyContent()).skills.join(", "),
+  const [skeleton, setSkeleton] = useState<Skeleton>(
+    initialSkeleton ?? emptySkeleton(),
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
 
-  const markdown = useMemo(
-    () => renderProfileMarkdown(header, content),
-    [header, content],
-  );
-
   function updateHeader(field: keyof ProfileHeader, value: string) {
     setHeader((h) => ({ ...h, [field]: value }));
   }
 
-  function updateExperience(index: number, entry: ExperienceEntry) {
-    setContent((c) => ({
-      ...c,
-      experience: c.experience.map((e, i) => (i === index ? entry : e)),
+  function updateRole(index: number, entry: Role) {
+    setSkeleton((s) => ({
+      ...s,
+      roles: s.roles.map((r, i) => (i === index ? entry : r)),
     }));
   }
 
-  function addExperience() {
-    setContent((c) => ({
-      ...c,
-      experience: [
-        ...c.experience,
+  function addRole() {
+    setSkeleton((s) => ({
+      ...s,
+      roles: [
+        ...s.roles,
         {
-          company: "",
+          id: crypto.randomUUID(),
+          employer: "",
           title: "",
-          location: "",
           startDate: "",
           endDate: "",
-          bullets: [],
+          location: "",
         },
       ],
     }));
   }
 
-  function removeExperience(index: number) {
-    setContent((c) => ({
-      ...c,
-      experience: c.experience.filter((_, i) => i !== index),
+  function removeRole(index: number) {
+    setSkeleton((s) => ({
+      ...s,
+      roles: s.roles.filter((_, i) => i !== index),
     }));
   }
 
-  function updateEducation(index: number, entry: EducationEntry) {
-    setContent((c) => ({
-      ...c,
-      education: c.education.map((e, i) => (i === index ? entry : e)),
+  function updateEducation(index: number, entry: Education) {
+    setSkeleton((s) => ({
+      ...s,
+      education: s.education.map((e, i) => (i === index ? entry : e)),
     }));
   }
 
   function addEducation() {
-    setContent((c) => ({
-      ...c,
+    setSkeleton((s) => ({
+      ...s,
       education: [
-        ...c.education,
+        ...s.education,
         {
+          id: crypto.randomUUID(),
           institution: "",
           degree: "",
           field: "",
-          startDate: "",
-          endDate: "",
-          details: "",
+          year: "",
         },
       ],
     }));
   }
 
   function removeEducation(index: number) {
-    setContent((c) => ({
-      ...c,
-      education: c.education.filter((_, i) => i !== index),
+    setSkeleton((s) => ({
+      ...s,
+      education: s.education.filter((_, i) => i !== index),
     }));
   }
 
-  function updateProject(index: number, entry: ProjectEntry) {
-    setContent((c) => ({
-      ...c,
-      projects: c.projects.map((p, i) => (i === index ? entry : p)),
+  function updateCertification(index: number, entry: Certification) {
+    setSkeleton((s) => ({
+      ...s,
+      certifications: s.certifications.map((c, i) =>
+        i === index ? entry : c,
+      ),
     }));
   }
 
-  function addProject() {
-    setContent((c) => ({
-      ...c,
-      projects: [
-        ...c.projects,
-        { name: "", description: "", bullets: [], link: "" },
+  function addCertification() {
+    setSkeleton((s) => ({
+      ...s,
+      certifications: [
+        ...s.certifications,
+        { id: crypto.randomUUID(), name: "", issuer: "", year: "" },
       ],
     }));
   }
 
-  function removeProject(index: number) {
-    setContent((c) => ({
-      ...c,
-      projects: c.projects.filter((_, i) => i !== index),
+  function removeCertification(index: number) {
+    setSkeleton((s) => ({
+      ...s,
+      certifications: s.certifications.filter((_, i) => i !== index),
     }));
   }
 
@@ -181,28 +148,11 @@ export function ProfileEditor({
     setIsSaving(true);
     setSaveError(null);
 
-    const skills = skillsText
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const contentToSave = {
-      ...content,
-      skills,
-      experience: content.experience.map((entry) => ({
-        ...entry,
-        bullets: entry.bullets.map((b) => b.trim()).filter(Boolean),
-      })),
-      projects: content.projects.map((entry) => ({
-        ...entry,
-        bullets: entry.bullets.map((b) => b.trim()).filter(Boolean),
-      })),
-    };
-
     try {
       const response = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ header, content: contentToSave }),
+        body: JSON.stringify({ header, skeleton }),
       });
       const data = await response.json();
 
@@ -211,11 +161,12 @@ export function ProfileEditor({
         return;
       }
 
-      setContent(contentToSave);
       setSavedAt(new Date());
-      onSaved?.();
+      onSaved?.(skeleton);
     } catch {
-      setSaveError("Could not reach the server. Check your connection and try again.");
+      setSaveError(
+        "Could not reach the server. Check your connection and try again.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -260,80 +211,49 @@ export function ProfileEditor({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Summary</h2>
-        <TextAreaField
-          label="Summary"
-          value={content.summary}
-          onChange={(v) => setContent((c) => ({ ...c, summary: v }))}
-          rows={4}
-        />
-      </section>
-
-      <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Experience</h2>
-          <Button variant="outline" size="sm" onClick={addExperience}>
-            Add experience
+          <h2 className="text-lg font-semibold">Roles</h2>
+          <Button variant="outline" size="sm" onClick={addRole}>
+            Add role
           </Button>
         </div>
-        {content.experience.map((entry, index) => (
+        {skeleton.roles.map((role, index) => (
           <div
-            key={index}
-            className="flex flex-col gap-3 rounded-lg border border-zinc-300 p-4 dark:border-zinc-700"
+            key={role.id}
+            className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-300 p-4 sm:grid-cols-2 dark:border-zinc-700"
           >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <TextField
-                label="Title"
-                value={entry.title}
-                onChange={(v) => updateExperience(index, { ...entry, title: v })}
-              />
-              <TextField
-                label="Company"
-                value={entry.company}
-                onChange={(v) =>
-                  updateExperience(index, { ...entry, company: v })
-                }
-              />
-              <TextField
-                label="Location"
-                value={entry.location}
-                onChange={(v) =>
-                  updateExperience(index, { ...entry, location: v })
-                }
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <TextField
-                  label="Start date"
-                  value={entry.startDate}
-                  onChange={(v) =>
-                    updateExperience(index, { ...entry, startDate: v })
-                  }
-                />
-                <TextField
-                  label="End date"
-                  value={entry.endDate}
-                  onChange={(v) =>
-                    updateExperience(index, { ...entry, endDate: v })
-                  }
-                />
-              </div>
-            </div>
-            <TextAreaField
-              label="Bullets (one per line)"
-              value={entry.bullets.join("\n")}
-              onChange={(v) =>
-                updateExperience(index, {
-                  ...entry,
-                  bullets: v.split("\n"),
-                })
-              }
-              rows={4}
+            <TextField
+              label="Title"
+              value={role.title}
+              onChange={(v) => updateRole(index, { ...role, title: v })}
             />
+            <TextField
+              label="Employer"
+              value={role.employer}
+              onChange={(v) => updateRole(index, { ...role, employer: v })}
+            />
+            <TextField
+              label="Location"
+              value={role.location}
+              onChange={(v) => updateRole(index, { ...role, location: v })}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="Start date"
+                value={role.startDate}
+                onChange={(v) => updateRole(index, { ...role, startDate: v })}
+              />
+              <TextField
+                label="End date"
+                value={role.endDate}
+                onChange={(v) => updateRole(index, { ...role, endDate: v })}
+              />
+            </div>
             <Button
               variant="destructive"
               size="sm"
-              className="self-start"
-              onClick={() => removeExperience(index)}
+              className="self-start sm:col-span-2"
+              onClick={() => removeRole(index)}
             >
               Remove
             </Button>
@@ -348,56 +268,37 @@ export function ProfileEditor({
             Add education
           </Button>
         </div>
-        {content.education.map((entry, index) => (
+        {skeleton.education.map((entry, index) => (
           <div
-            key={index}
-            className="flex flex-col gap-3 rounded-lg border border-zinc-300 p-4 dark:border-zinc-700"
+            key={entry.id}
+            className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-300 p-4 sm:grid-cols-2 dark:border-zinc-700"
           >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <TextField
-                label="Degree"
-                value={entry.degree}
-                onChange={(v) => updateEducation(index, { ...entry, degree: v })}
-              />
-              <TextField
-                label="Institution"
-                value={entry.institution}
-                onChange={(v) =>
-                  updateEducation(index, { ...entry, institution: v })
-                }
-              />
-              <TextField
-                label="Field"
-                value={entry.field}
-                onChange={(v) => updateEducation(index, { ...entry, field: v })}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <TextField
-                  label="Start date"
-                  value={entry.startDate}
-                  onChange={(v) =>
-                    updateEducation(index, { ...entry, startDate: v })
-                  }
-                />
-                <TextField
-                  label="End date"
-                  value={entry.endDate}
-                  onChange={(v) =>
-                    updateEducation(index, { ...entry, endDate: v })
-                  }
-                />
-              </div>
-            </div>
-            <TextAreaField
-              label="Details"
-              value={entry.details}
-              onChange={(v) => updateEducation(index, { ...entry, details: v })}
-              rows={2}
+            <TextField
+              label="Degree"
+              value={entry.degree}
+              onChange={(v) => updateEducation(index, { ...entry, degree: v })}
+            />
+            <TextField
+              label="Institution"
+              value={entry.institution}
+              onChange={(v) =>
+                updateEducation(index, { ...entry, institution: v })
+              }
+            />
+            <TextField
+              label="Field"
+              value={entry.field}
+              onChange={(v) => updateEducation(index, { ...entry, field: v })}
+            />
+            <TextField
+              label="Year"
+              value={entry.year}
+              onChange={(v) => updateEducation(index, { ...entry, year: v })}
             />
             <Button
               variant="destructive"
               size="sm"
-              className="self-start"
+              className="self-start sm:col-span-2"
               onClick={() => removeEducation(index)}
             >
               Remove
@@ -407,63 +308,43 @@ export function ProfileEditor({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Skills</h2>
-        <TextAreaField
-          label="Skills (comma separated)"
-          value={skillsText}
-          onChange={setSkillsText}
-          rows={2}
-        />
-      </section>
-
-      <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Projects</h2>
-          <Button variant="outline" size="sm" onClick={addProject}>
-            Add project
+          <h2 className="text-lg font-semibold">Certifications</h2>
+          <Button variant="outline" size="sm" onClick={addCertification}>
+            Add certification
           </Button>
         </div>
-        {content.projects.map((entry, index) => (
+        {skeleton.certifications.map((entry, index) => (
           <div
-            key={index}
-            className="flex flex-col gap-3 rounded-lg border border-zinc-300 p-4 dark:border-zinc-700"
+            key={entry.id}
+            className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-300 p-4 sm:grid-cols-2 dark:border-zinc-700"
           >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <TextField
-                label="Name"
-                value={entry.name}
-                onChange={(v) => updateProject(index, { ...entry, name: v })}
-              />
-              <TextField
-                label="Link"
-                value={entry.link}
-                onChange={(v) => updateProject(index, { ...entry, link: v })}
-              />
-            </div>
-            <TextAreaField
-              label="Description"
-              value={entry.description}
+            <TextField
+              label="Name"
+              value={entry.name}
               onChange={(v) =>
-                updateProject(index, { ...entry, description: v })
+                updateCertification(index, { ...entry, name: v })
               }
-              rows={2}
             />
-            <TextAreaField
-              label="Bullets (one per line)"
-              value={entry.bullets.join("\n")}
+            <TextField
+              label="Issuer"
+              value={entry.issuer}
               onChange={(v) =>
-                updateProject(index, {
-                  ...entry,
-                  bullets: v.split("\n"),
-                })
+                updateCertification(index, { ...entry, issuer: v })
               }
-              rows={3}
+            />
+            <TextField
+              label="Year"
+              value={entry.year}
+              onChange={(v) =>
+                updateCertification(index, { ...entry, year: v })
+              }
             />
             <Button
               variant="destructive"
               size="sm"
-              className="self-start"
-              onClick={() => removeProject(index)}
+              className="self-start sm:col-span-2"
+              onClick={() => removeCertification(index)}
             >
               Remove
             </Button>
@@ -487,13 +368,6 @@ export function ProfileEditor({
             {saveError}
           </p>
         )}
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Markdown preview</h2>
-        <pre className="max-h-96 overflow-auto rounded-lg border border-zinc-300 bg-white p-4 font-mono text-xs whitespace-pre-wrap text-black dark:border-zinc-700 dark:bg-black dark:text-zinc-50">
-          {markdown || "Nothing to preview yet."}
-        </pre>
       </section>
     </div>
   );
