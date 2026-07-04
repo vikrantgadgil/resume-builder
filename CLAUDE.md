@@ -2,7 +2,7 @@
 
 ## What this project is
 
-A single-user resume generation system. It stores one master profile, accepts a job description, and generates an ATS-compliant two-page PDF resume tailored to that job. It tracks every application (job description, generated resume version, score, date). Prototype for personal use now, architected for future SaaS migration.
+A single-user resume generation system. It stores a superset knowledge base of everything the user has done (cyber, PMO, transformation, SAP, general IT, and more): a verified skeleton (roles, education, certifications) that is never AI-generated, plus a loose pool of freeform facts. Each tailored resume selects and phrases a relevant slice of that knowledge base against a job description, producing an ATS-compliant two-page PDF. It tracks every application (job description, generated resume version, score, date). Prototype for personal use now, architected for future SaaS migration.
 
 ## Stack (locked, do not substitute)
 
@@ -31,6 +31,8 @@ A single-user resume generation system. It stores one master profile, accepts a 
 10. No em dashes anywhere: not in UI copy, generated resume content, comments, or docs. Use commas, colons, or separate sentences.
 11. Do not modify files outside the scope of the current phase.
 12. Update PROGRESS.md at the end of every session: what was completed, what is next, any blockers.
+13. Resume imports must never silently overwrite existing knowledge base content. All merges (skeleton reconciliation, fact candidates) require user review and approval before save.
+14. Skeleton fields (employer, title, dates, degree, certification, contact info) are never generated, altered, or echoed back as editable content by the LLM. They render from the database only.
 
 ## Environment notes
 

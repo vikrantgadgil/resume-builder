@@ -54,6 +54,40 @@ Branch: `phase-3-profile`
 
 Acceptance: upload, extract, hand-edit, save, refresh browser, profile reloads intact. Zod rejects a malformed LLM response without crashing.
 
+## Phase 3.5: Knowledge base ingestion and fact pool
+
+Branch: `phase-3-5-knowledge-base`
+
+- Schema changes above, with Drizzle migration applied to Neon
+- Rework resume import flow: after Phase 2 text confirmation, DeepSeek extracts (a) skeleton candidates (roles, education, certs) and (b) fact candidates, each Zod validated
+- Skeleton reconciliation UI: show proposed new/changed roles side by side with existing skeleton; user approves, edits, or rejects each before save; exact-duplicate roles auto-recognized and skipped
+- Fact merge UI: proposed facts listed with checkboxes, default all selected; near-duplicate detection can be naive in this phase (exact and case-insensitive match only); user confirms before save
+- 'Add fact' quick-entry UI on the profile page: a single textarea plus optional role/tag pickers; saving one fact must take under five seconds of user effort
+- DeepSeek may suggest tags for new facts, Zod validated, user can edit
+- Markdown rendering updated: skeleton first, then facts grouped by role, then unattached facts grouped by tag
+- Hard rule carried forward: DeepSeek structures and extracts existing text only; any employer, title, date, degree, or skill not traceable to the source text is a bug
+
+Acceptance: import a second, different resume on top of an existing knowledge base; approve the merge; confirm nothing from the first import was lost and no duplicate roles were created. Add three facts manually in loose language and confirm they persist and render. Forced-malformed DeepSeek response falls back cleanly without data loss.
+
+### Data model changes
+
+Keep as is: profiles.header (jsonb): name, email, phone, location, linkedin, github. Never AI-generated, never regenerated. Unchanged.
+
+Slim down: profiles.content (jsonb) becomes the verified skeleton only:
+- roles: array of { employer, title, startDate, endDate, location optional }
+- education: array of { institution, degree, field optional, year optional }
+- certifications: array of { name, issuer optional, year optional }
+- Remove freeform bullets, summary text, and skills lists from content. These migrate to the fact pool.
+
+Add: facts table (new Drizzle table):
+- id (uuid)
+- userId (fk)
+- text (text, required): the fact itself, freeform
+- roleRef (nullable): loose link to a skeleton role (store the role identifier or index; nullable because many facts are cross-cutting)
+- tags (text array, nullable): user or AI suggested themes, e.g. cyber, pmo, sap, transformation, leadership
+- source (text): 'import' or 'manual'
+- createdAt, updatedAt
+
 ## Phase 4: Job description intake and keywords
 
 Branch: `phase-4-jd-keywords`
@@ -76,16 +110,20 @@ Branch: `phase-5-pdf`
 
 Acceptance: generation completes in under 5 seconds in the browser; PDF opens in Acrobat and copy-paste of its text preserves reading order; two-page limit enforced.
 
-## Phase 6: AI content tailoring
+## Phase 6: AI content tailoring (amended)
 
 Branch: `phase-6-ai-tailoring`
 
-- DeepSeek rewriting pass: given profile content plus JD keywords, rephrase bullets to naturally include relevant keywords
-- Strict Zod schema on output; on validation failure, use original content and surface a notice
-- Prompt must forbid inventing employers, titles, dates, degrees, or skills
-- Side-by-side diff view: original vs tailored, user approves before generation
+Scope changes from rephrase-only to select-then-phrase:
 
-Acceptance: tailored resume includes target keywords, contains no facts absent from the profile, and a forced-invalid API response falls back cleanly.
+- Input: the full knowledge base (skeleton plus fact pool) and the JD keywords from Phase 4
+- Step 1, selection: DeepSeek selects the most relevant facts for this JD, within a budget that fits two pages; selection output is Zod validated and shown to the user as a checklist they can adjust
+- Step 2, phrasing: selected facts are phrased as resume bullets attached to their skeleton roles, naturally including JD keywords; Zod validated; side by side diff retained from original plan
+- Skeleton fields (employers, titles, dates, degrees, certs) render from the database directly and are never passed through or returned by the LLM as editable content
+- No invented facts rule unchanged and enforced at both steps
+- Unattached facts selected for inclusion render under a Selected Highlights or Skills section, phrasing decided in session
+
+Acceptance: tailored resume includes target keywords, contains no facts absent from the knowledge base, skeleton fields match the database exactly, and a forced-invalid API response falls back cleanly.
 
 ## Phase 7: ATS scoring
 
