@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 3.6 complete on branch phase-3-6-reconciliation. Not yet merged to main.
+Phase 4 complete on branch phase-4-jd-keywords. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,30 @@ Phase 3.6 complete on branch phase-3-6-reconciliation. Not yet merged to main.
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-04
+**Phase:** 4 - Job description intake and keywords
+**Branch:** phase-4-jd-keywords
+
+**Completed:**
+- JD intake UI (src/components/forms/JobDescriptionInput.tsx) on the generator page: paste text directly, or upload a .pdf/.docx file, which reuses the existing Phase 2 /api/parse route (pdf-parse/mammoth) rather than duplicating that logic
+- compromise.js-based keyword extraction (src/lib/keywords.ts): acronyms plus noun phrases, split on commas and "and", frequency ranked, with a noise-filtering pass added mid-session (see bugs below)
+- Title and company heuristics (also src/lib/keywords.ts): title from the first line when it looks like a title, else the most frequent noun phrase containing a common title keyword (Engineer, Manager, Director, and so on); company from compromise's organization detector, falling back to the most frequent capitalized multi-word noun phrase when that detector finds nothing (it missed invented company names lacking a recognizable suffix in testing)
+- Both fields are always editable in the generator UI, since heuristics will not always be right
+- Schema change: added a nullable keywords jsonb column to the applications table, migration generated and applied to Neon
+- New API routes: POST /api/jd/analyze (runs extraction on JD text, no persistence) and POST /api/applications (saves a draft application record: jobTitle, company, jobDescription, keywords)
+- Bugs found and fixed during interactive testing, all in src/lib/keywords.ts:
+  - Fragments like "(k)" (from "401(k)"), bare "+ years" (from "10+ years"), and other number/punctuation remnants were surfacing as standalone keywords. Fixed by stripping leading digit and parenthetical fragments in cleanTerm (in the correct order, digits before parens, since "401(k)" does not start with "(" until the leading number is removed first) and rejecting any term that is entirely filler words after stopword removal
+  - Leading filler determiners (both, some, all, any, every, various, other) were staying attached to otherwise good phrases, e.g. "both customer experience" instead of "customer experience". Fixed by stripping leading filler words from the front of a phrase rather than rejecting the whole phrase
+  - Bare generic single words (Chair, Ability, Skills, Experience) were surfacing with no context and little signal. Added to the stopword list, but only rejected when they are the entire term after stopword filtering, so meaningful multi-word phrases like "Chair of the Board" or "customer experience" are unaffected
+- Verified: pasting a real job description produces a sensible ranked keyword list with the noise fixes above; title and company extract reasonably and are editable when wrong; uploading the same job description as a .docx file produced identical extracted keywords, title, and company compared to pasting the equivalent text
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None.
+
+**Next step:** Open a new session for Phase 5 (PDF generation and preview). Merge phase-4-jd-keywords into main first per the one-branch-per-phase rule.
 
 ---
 

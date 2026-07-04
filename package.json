@@ -16,6 +16,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "compromise": "^14.15.1",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.23.0",
     "mammoth": "^1.12.0",

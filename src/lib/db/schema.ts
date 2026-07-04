@@ -125,6 +125,7 @@ export const applications = pgTable("application", {
   jobTitle: text("jobTitle").notNull(),
   company: text("company").notNull(),
   jobDescription: text("jobDescription").notNull(),
+  keywords: jsonb("keywords"),
   resumeBlobUrl: text("resumeBlobUrl"),
   atsScore: integer("atsScore"),
   atsRulesetVersion: text("atsRulesetVersion"),

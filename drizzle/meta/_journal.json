@@ -15,6 +15,13 @@
       "when": 1783138915299,
       "tag": "0001_tense_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783179259941,
+      "tag": "0002_wooden_may_parker",
+      "breakpoints": true
     }
   ]
 }
