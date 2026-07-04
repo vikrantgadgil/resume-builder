@@ -98,9 +98,9 @@ export default function GeneratorPage() {
       <div>
         <h1 className="text-xl font-semibold">Generator</h1>
         <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-          Paste or upload a job description to extract keywords and start a
-          draft application. Tailoring, PDF generation, and scoring are built
-          in later phases.
+          Paste or upload a job description to extract keywords, save a draft
+          application, and generate a tailored resume PDF. ATS scoring and
+          the tracking table are built in later phases.
         </p>
       </div>
 
@@ -204,12 +204,15 @@ export default function GeneratorPage() {
               {saveError}
             </p>
           )}
+
+          <hr className="border-zinc-200 dark:border-zinc-800" />
+
+          <ResumeGenerator
+            jobDescription={jobDescription}
+            keywords={keywords.map((k) => k.term)}
+          />
         </div>
       )}
-
-      <hr className="border-zinc-200 dark:border-zinc-800" />
-
-      <ResumeGenerator />
     </div>
   );
 }

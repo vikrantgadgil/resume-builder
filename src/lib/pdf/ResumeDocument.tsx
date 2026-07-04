@@ -1,18 +1,12 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import type {
-  Certification,
-  Education,
-  Fact,
-  ProfileHeader,
-  Role,
-} from "@/types/profile";
+import type { Certification, Education, ProfileHeader, Role } from "@/types/profile";
 
 export type ResumeDocumentData = {
   header: ProfileHeader;
-  roles: { role: Role; facts: Fact[] }[];
+  roles: { role: Role; bullets: string[] }[];
   education: Education[];
   certifications: Certification[];
-  skills: Fact[];
+  highlights: string[];
 };
 
 const styles = StyleSheet.create({
@@ -69,7 +63,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginBottom: 2,
   },
-  skillLine: {
+  highlightLine: {
     fontSize: 10,
     marginBottom: 2,
   },
@@ -82,7 +76,7 @@ function dateRange(startDate: string, endDate: string): string {
 }
 
 export function ResumeDocument({ data }: { data: ResumeDocumentData }) {
-  const { header, roles, education, certifications, skills } = data;
+  const { header, roles, education, certifications, highlights } = data;
 
   const contactParts = [
     header.email,
@@ -103,7 +97,7 @@ export function ResumeDocument({ data }: { data: ResumeDocumentData }) {
         {roles.length > 0 ? (
           <View>
             <Text style={styles.sectionHeading}>Experience</Text>
-            {roles.map(({ role, facts }) => (
+            {roles.map(({ role, bullets }) => (
               <View key={role.id} style={styles.roleBlock} wrap={false}>
                 <Text style={styles.roleHeading}>
                   {[role.title, role.employer].filter(Boolean).join(", ")}
@@ -113,9 +107,9 @@ export function ResumeDocument({ data }: { data: ResumeDocumentData }) {
                     .filter(Boolean)
                     .join(" | ")}
                 </Text>
-                {facts.map((fact) => (
-                  <Text key={fact.id} style={styles.bulletLine}>
-                    - {fact.text}
+                {bullets.map((bullet, index) => (
+                  <Text key={index} style={styles.bulletLine}>
+                    - {bullet}
                   </Text>
                 ))}
               </View>
@@ -152,12 +146,12 @@ export function ResumeDocument({ data }: { data: ResumeDocumentData }) {
           </View>
         ) : null}
 
-        {skills.length > 0 ? (
+        {highlights.length > 0 ? (
           <View>
-            <Text style={styles.sectionHeading}>Skills</Text>
-            {skills.map((fact) => (
-              <Text key={fact.id} style={styles.skillLine}>
-                {fact.text}
+            <Text style={styles.sectionHeading}>Selected Highlights</Text>
+            {highlights.map((highlight, index) => (
+              <Text key={index} style={styles.highlightLine}>
+                {highlight}
               </Text>
             ))}
           </View>

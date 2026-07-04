@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { Button } from "@/components/ui/button";
 import { ResumeDocument, type ResumeDocumentData } from "@/lib/pdf/ResumeDocument";
@@ -15,20 +15,31 @@ import {
 
 const MAX_PAGES = 2;
 
-export function ResumeGenerator() {
+type PhrasedEntry = { original: string; phrasedText: string; usePhrased: boolean };
+
+export function ResumeGenerator({
+  jobDescription,
+  keywords,
+}: {
+  jobDescription: string;
+  keywords: string[];
+}) {
   const [isLoading, setIsLoading] = useState(true);
   const [header, setHeader] = useState<ProfileHeader>(emptyHeader());
   const [skeleton, setSkeleton] = useState<Skeleton>(emptySkeleton());
   const [facts, setFacts] = useState<Fact[]>([]);
 
-  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
-  const [selectedEducationIds, setSelectedEducationIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const [selectedCertificationIds, setSelectedCertificationIds] = useState<
-    Set<string>
-  >(new Set());
   const [selectedFactIds, setSelectedFactIds] = useState<Set<string>>(new Set());
+  const [hasSuggested, setHasSuggested] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectNotice, setSelectNotice] = useState<string | null>(null);
+
+  const [phrasedBullets, setPhrasedBullets] = useState<Map<
+    string,
+    PhrasedEntry
+  > | null>(null);
+  const [isPhrasing, setIsPhrasing] = useState(false);
+  const [phraseNotice, setPhraseNotice] = useState<string | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -43,56 +54,51 @@ export function ResumeGenerator() {
           setHeader(data.profile.header);
           setSkeleton(data.profile.skeleton);
         }
-        const loadedFacts: Fact[] = data.facts ?? [];
-        setFacts(loadedFacts);
-
-        if (data.profile) {
-          setSelectedRoleIds(
-            new Set(data.profile.skeleton.roles.map((r: { id: string }) => r.id)),
-          );
-          setSelectedEducationIds(
-            new Set(
-              data.profile.skeleton.education.map((e: { id: string }) => e.id),
-            ),
-          );
-          setSelectedCertificationIds(
-            new Set(
-              data.profile.skeleton.certifications.map(
-                (c: { id: string }) => c.id,
-              ),
-            ),
-          );
-        }
-        setSelectedFactIds(new Set(loadedFacts.map((f) => f.id)));
+        setFacts(data.facts ?? []);
       })
       .finally(() => setIsLoading(false));
   }, []);
 
-  function toggleRole(id: string) {
-    setSelectedRoleIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  function resetDownstream() {
+    setPhrasedBullets(null);
+    setPhraseNotice(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setPageCount(null);
+    setGenerateError(null);
   }
 
-  function toggleEducation(id: string) {
-    setSelectedEducationIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  async function handleSuggestSelection() {
+    setIsSelecting(true);
+    setSelectNotice(null);
+    resetDownstream();
 
-  function toggleCertification(id: string) {
-    setSelectedCertificationIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    try {
+      const response = await fetch("/api/tailor/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobDescription, keywords }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || data.fallback) {
+        setSelectedFactIds(new Set(facts.map((f) => f.id)));
+        setSelectNotice(
+          `AI selection did not succeed${data.reason ? ` (${data.reason})` : ""}. Showing everything so you can choose manually.`,
+        );
+      } else {
+        setSelectedFactIds(new Set(data.selectedFactIds));
+      }
+      setHasSuggested(true);
+    } catch {
+      setSelectedFactIds(new Set(facts.map((f) => f.id)));
+      setSelectNotice(
+        "Could not reach the server to suggest a selection. Showing everything so you can choose manually.",
+      );
+      setHasSuggested(true);
+    } finally {
+      setIsSelecting(false);
+    }
   }
 
   function toggleFact(id: string) {
@@ -102,14 +108,84 @@ export function ResumeGenerator() {
       else next.add(id);
       return next;
     });
+    resetDownstream();
   }
 
-  const unattachedFacts = useMemo(
-    () => facts.filter((f) => !f.roleRef),
-    [facts],
-  );
+  const unattachedFacts = facts.filter((f) => !f.roleRef);
+
+  async function handlePhrase() {
+    setIsPhrasing(true);
+    setPhraseNotice(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setPageCount(null);
+
+    function fallbackMap(): Map<string, PhrasedEntry> {
+      const map = new Map<string, PhrasedEntry>();
+      for (const id of selectedFactIds) {
+        const fact = facts.find((f) => f.id === id);
+        if (fact) {
+          map.set(id, {
+            original: fact.text,
+            phrasedText: fact.text,
+            usePhrased: true,
+          });
+        }
+      }
+      return map;
+    }
+
+    try {
+      const response = await fetch("/api/tailor/phrase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobDescription,
+          keywords,
+          factIds: Array.from(selectedFactIds),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || data.fallback) {
+        setPhraseNotice(
+          `AI phrasing did not succeed${data.reason ? ` (${data.reason})` : ""}. Using original fact text instead.`,
+        );
+        setPhrasedBullets(fallbackMap());
+      } else {
+        const map = new Map<string, PhrasedEntry>();
+        for (const bullet of data.bullets) {
+          map.set(bullet.factId, {
+            original: bullet.original,
+            phrasedText: bullet.phrasedText,
+            usePhrased: true,
+          });
+        }
+        setPhrasedBullets(map);
+      }
+    } catch {
+      setPhraseNotice(
+        "Could not reach the server to phrase these bullets. Using original fact text instead.",
+      );
+      setPhrasedBullets(fallbackMap());
+    } finally {
+      setIsPhrasing(false);
+    }
+  }
+
+  function toggleUsePhrased(factId: string) {
+    setPhrasedBullets((prev) => {
+      if (!prev) return prev;
+      const next = new Map(prev);
+      const entry = next.get(factId);
+      if (entry) next.set(factId, { ...entry, usePhrased: !entry.usePhrased });
+      return next;
+    });
+  }
 
   async function handleGenerate() {
+    if (!phrasedBullets) return;
+    const bullets = phrasedBullets;
     setIsGenerating(true);
     setGenerateError(null);
     if (previewUrl) {
@@ -118,24 +194,28 @@ export function ResumeGenerator() {
     }
     setPageCount(null);
 
+    function bulletTextFor(factId: string): string | null {
+      const entry = bullets.get(factId);
+      if (!entry) return null;
+      return entry.usePhrased ? entry.phrasedText : entry.original;
+    }
+
     try {
       const data: ResumeDocumentData = {
         header,
-        roles: skeleton.roles
-          .filter((role) => selectedRoleIds.has(role.id))
-          .map((role) => ({
-            role,
-            facts: facts.filter(
-              (f) => f.roleRef === role.id && selectedFactIds.has(f.id),
-            ),
-          })),
-        education: skeleton.education.filter((entry) =>
-          selectedEducationIds.has(entry.id),
-        ),
-        certifications: skeleton.certifications.filter((entry) =>
-          selectedCertificationIds.has(entry.id),
-        ),
-        skills: unattachedFacts.filter((f) => selectedFactIds.has(f.id)),
+        roles: skeleton.roles.map((role) => ({
+          role,
+          bullets: facts
+            .filter((f) => f.roleRef === role.id && selectedFactIds.has(f.id))
+            .map((f) => bulletTextFor(f.id))
+            .filter((text): text is string => text !== null),
+        })),
+        education: skeleton.education,
+        certifications: skeleton.certifications,
+        highlights: unattachedFacts
+          .filter((f) => selectedFactIds.has(f.id))
+          .map((f) => bulletTextFor(f.id))
+          .filter((text): text is string => text !== null),
       };
 
       const blob = await pdf(<ResumeDocument data={data} />).toBlob();
@@ -143,7 +223,7 @@ export function ResumeGenerator() {
 
       if (pages > MAX_PAGES) {
         setGenerateError(
-          `This selection produces ${pages} pages, which is over the ${MAX_PAGES} page limit. Uncheck some items below and try again.`,
+          `This selection produces ${pages} pages, which is over the ${MAX_PAGES} page limit. Uncheck a few facts above and phrase again.`,
         );
         setPageCount(pages);
         return;
@@ -167,125 +247,152 @@ export function ResumeGenerator() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-lg font-semibold">Generate resume PDF</h2>
+        <h2 className="text-lg font-semibold">Generate tailored resume PDF</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Everything is included by default. Uncheck items to fit within 2
-          pages. Nothing is cut without you choosing to leave it out.
+          AI suggests which facts from your knowledge base fit this job the
+          best. Review and adjust before phrasing and generating. Roles,
+          education, and certifications always render from your profile as
+          stored.
         </p>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {skeleton.roles.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h3 className="font-medium">Experience</h3>
-            {skeleton.roles.map((role) => {
-              const roleFacts = facts.filter((f) => f.roleRef === role.id);
-              const roleChecked = selectedRoleIds.has(role.id);
-              return (
-                <div
-                  key={role.id}
-                  className="rounded-md border border-zinc-200 p-2 text-sm dark:border-zinc-800"
-                >
-                  <label className="flex items-center gap-2 font-medium">
+      <Button
+        onClick={handleSuggestSelection}
+        disabled={isSelecting}
+        className="self-start"
+      >
+        {isSelecting
+          ? "Selecting..."
+          : hasSuggested
+            ? "Re-suggest selection"
+            : "Suggest selection for this job description"}
+      </Button>
+
+      {selectNotice && (
+        <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+          {selectNotice}
+        </p>
+      )}
+
+      {hasSuggested && (
+        <>
+          <div className="flex flex-col gap-4">
+            {skeleton.roles.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <h3 className="font-medium">
+                  Experience (all roles always included)
+                </h3>
+                {skeleton.roles.map((role) => {
+                  const roleFacts = facts.filter(
+                    (f) => f.roleRef === role.id,
+                  );
+                  return (
+                    <div
+                      key={role.id}
+                      className="rounded-md border border-zinc-200 p-2 text-sm dark:border-zinc-800"
+                    >
+                      <p className="font-medium">
+                        {role.title} at {role.employer}
+                      </p>
+                      <div className="mt-1 flex flex-col gap-1 pl-6">
+                        {roleFacts.map((fact) => (
+                          <label
+                            key={fact.id}
+                            className="flex items-start gap-2 text-xs text-zinc-700 dark:text-zinc-300"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedFactIds.has(fact.id)}
+                              onChange={() => toggleFact(fact.id)}
+                              className="mt-0.5"
+                            />
+                            {fact.text}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+
+            {unattachedFacts.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <h3 className="font-medium">
+                  Selected Highlights (unattached facts)
+                </h3>
+                {unattachedFacts.map((fact) => (
+                  <label
+                    key={fact.id}
+                    className="flex items-center gap-2 text-sm"
+                  >
                     <input
                       type="checkbox"
-                      checked={roleChecked}
-                      onChange={() => toggleRole(role.id)}
+                      checked={selectedFactIds.has(fact.id)}
+                      onChange={() => toggleFact(fact.id)}
                     />
-                    {role.title} at {role.employer}
+                    {fact.text}
                   </label>
-                  <div className="mt-1 flex flex-col gap-1 pl-6">
-                    {roleFacts.map((fact) => (
-                      <label
-                        key={fact.id}
-                        className={`flex items-start gap-2 text-xs ${
-                          roleChecked
-                            ? "text-zinc-700 dark:text-zinc-300"
-                            : "text-zinc-400 dark:text-zinc-600"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedFactIds.has(fact.id)}
-                          disabled={!roleChecked}
-                          onChange={() => toggleFact(fact.id)}
-                          className="mt-0.5"
-                        />
-                        {fact.text}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-        )}
+                ))}
+              </section>
+            )}
+          </div>
 
-        {skeleton.education.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h3 className="font-medium">Education</h3>
-            {skeleton.education.map((entry) => (
-              <label
-                key={entry.id}
-                className="flex items-center gap-2 text-sm"
-              >
+          <Button
+            onClick={handlePhrase}
+            disabled={isPhrasing || selectedFactIds.size === 0}
+            className="self-start"
+          >
+            {isPhrasing ? "Phrasing..." : "Phrase selected facts"}
+          </Button>
+        </>
+      )}
+
+      {phraseNotice && (
+        <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+          {phraseNotice}
+        </p>
+      )}
+
+      {phrasedBullets && phrasedBullets.size > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 className="font-medium">Review phrasing</h3>
+          {Array.from(phrasedBullets.entries()).map(([factId, entry]) => (
+            <div
+              key={factId}
+              className="rounded-md border border-zinc-200 p-2 text-sm dark:border-zinc-800"
+            >
+              <label className="flex items-center gap-2 text-xs font-medium">
                 <input
                   type="checkbox"
-                  checked={selectedEducationIds.has(entry.id)}
-                  onChange={() => toggleEducation(entry.id)}
+                  checked={entry.usePhrased}
+                  onChange={() => toggleUsePhrased(factId)}
                 />
-                {entry.degree}, {entry.institution}
+                Use phrased version
               </label>
-            ))}
-          </section>
-        )}
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                Original: {entry.original}
+              </p>
+              <p className="text-xs text-black dark:text-zinc-50">
+                Phrased: {entry.phrasedText}
+              </p>
+            </div>
+          ))}
+        </section>
+      )}
 
-        {skeleton.certifications.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h3 className="font-medium">Certifications</h3>
-            {skeleton.certifications.map((entry) => (
-              <label
-                key={entry.id}
-                className="flex items-center gap-2 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedCertificationIds.has(entry.id)}
-                  onChange={() => toggleCertification(entry.id)}
-                />
-                {entry.name}
-              </label>
-            ))}
-          </section>
-        )}
-
-        {unattachedFacts.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h3 className="font-medium">Skills</h3>
-            {unattachedFacts.map((fact) => (
-              <label key={fact.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selectedFactIds.has(fact.id)}
-                  onChange={() => toggleFact(fact.id)}
-                />
-                {fact.text}
-              </label>
-            ))}
-          </section>
-        )}
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Button onClick={handleGenerate} disabled={isGenerating}>
-          {isGenerating ? "Generating..." : "Generate PDF"}
-        </Button>
-        {pageCount !== null && (
-          <span className="text-sm text-zinc-500 dark:text-zinc-400">
-            {pageCount} page{pageCount === 1 ? "" : "s"}
-          </span>
-        )}
-      </div>
+      {phrasedBullets && (
+        <div className="flex items-center gap-3">
+          <Button onClick={handleGenerate} disabled={isGenerating}>
+            {isGenerating ? "Generating..." : "Generate PDF"}
+          </Button>
+          {pageCount !== null && (
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+              {pageCount} page{pageCount === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+      )}
 
       {generateError && (
         <p className="text-sm font-medium text-red-600 dark:text-red-400">

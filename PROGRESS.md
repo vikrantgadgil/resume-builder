@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 5.5 complete on branch phase-5-5-fact-attachment. Not yet merged to main.
+Phase 6 complete on branch phase-6-ai-tailoring. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,26 @@ Phase 5.5 complete on branch phase-5-5-fact-attachment. Not yet merged to main.
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-04
+**Phase:** 6 - AI content tailoring
+**Branch:** phase-6-ai-tailoring
+
+**Completed:**
+- Decided in session, confirmed with user: selected unattached facts render under a "Selected Highlights" heading (not "Skills", since Phase 6 phrases facts as full narrative bullets rather than terse skill tokens), placed last, after Certifications
+- Replaces Phase 5's manual all-checked checklist with two sequential DeepSeek steps, matching the amended PLAN.md: selection (src/lib/ai/select-facts.ts, POST /api/tailor/select) picks the most relevant facts from the full knowledge base for the pasted job description and its Phase 4 keywords, Zod validated (src/types/tailoring.ts), pre-populating the review checklist instead of leaving it empty or all-checked
+- Skeleton entries (roles, education, certifications) are never subject to AI selection, they always render in full from the database, consistent with the hard rule that skeleton fields never pass through the LLM; only facts (both role-attached and unattached) are selected
+- Phrasing step (src/lib/ai/phrase-bullets.ts, POST /api/tailor/phrase) rewrites each selected fact into a resume bullet naturally incorporating relevant JD keywords, Zod validated, with an explicit instruction not to add claims, numbers, or scope beyond the original fact. A side by side diff (original fact text vs phrased text) is shown per bullet with a per-bullet toggle to fall back to the original wording
+- src/lib/pdf/ResumeDocument.tsx refactored to a simpler, phrasing-agnostic data shape (roles carry resolved bullet strings, plus a flat highlights list) so the template has no knowledge of facts, selection, or phrasing as concepts, it only renders whatever text it is given
+- Any change to the checklist after phrasing invalidates the phrased bullets, requiring the user to re-run phrasing, so the diff shown always matches what would actually be generated
+- Verified: forced-malformed responses at both the selection and phrasing steps degrade cleanly (selection falls back to showing everything for manual choice, phrasing falls back to original fact text), neither crashes or loses data; a full end to end run with a real job description and real DeepSeek calls completed the entire flow (JD analysis, AI-suggested selection, phrasing with reviewed diff, PDF generation), respected the two-page limit without manual trimming, and the phrased bullets showed no invented or exaggerated content on review
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None. Selection relevance and phrasing tone quality are areas for ongoing evaluation across a wider range of real job descriptions over time, not closed issues resolved by this session's single test.
+
+**Next step:** Open a new session for Phase 7 (ATS scoring). Merge phase-6-ai-tailoring into main first per the one-branch-per-phase rule.
 
 ---
 
