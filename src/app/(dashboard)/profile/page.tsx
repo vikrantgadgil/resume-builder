@@ -4,29 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ResumeUpload } from "@/components/forms/ResumeUpload";
 import { ProfileEditor } from "@/components/forms/ProfileEditor";
-import { ImportReview } from "@/components/forms/ImportReview";
+import { ImportReview, type ReconcileResult } from "@/components/forms/ImportReview";
+import { ReconcileExisting } from "@/components/forms/ReconcileExisting";
 import { AddFact } from "@/components/forms/AddFact";
 import { FactsList } from "@/components/forms/FactsList";
 import { renderProfileMarkdown } from "@/lib/profile-markdown";
 import {
   emptyHeader,
   emptySkeleton,
-  type CertificationCandidate,
-  type EducationCandidate,
   type Fact,
-  type FactCandidate,
   type ProfileHeader,
-  type RoleCandidate,
   type Skeleton,
 } from "@/types/profile";
-
-type Candidates = {
-  header?: ProfileHeader;
-  roles: RoleCandidate[];
-  education: EducationCandidate[];
-  certifications: CertificationCandidate[];
-  facts: FactCandidate[];
-};
 
 export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +27,7 @@ export default function ProfilePage() {
   const [showUploader, setShowUploader] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractNotice, setExtractNotice] = useState<string | null>(null);
-  const [pendingCandidates, setPendingCandidates] = useState<Candidates | null>(
+  const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(
     null,
   );
   const [mergeNotice, setMergeNotice] = useState<string | null>(null);
@@ -71,32 +60,48 @@ export default function ProfilePage() {
     setMergeNotice(null);
 
     try {
-      const response = await fetch("/api/profile/extract", {
+      const extractResponse = await fetch("/api/profile/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rawText }),
       });
-      const data = await response.json();
+      const extractData = await extractResponse.json();
 
-      if (data.fallback) {
+      if (extractData.fallback) {
         setExtractNotice(
-          `AI extraction did not succeed (${data.reason}). Add facts manually below, or edit the skeleton by hand.`,
+          `AI extraction did not succeed (${extractData.reason}). Add facts manually below, or edit the skeleton by hand.`,
         );
-        setPendingCandidates(null);
-      } else {
-        setPendingCandidates({
-          header: data.hasHeader ? data.header : undefined,
-          roles: data.roles,
-          education: data.education,
-          certifications: data.certifications,
-          facts: data.facts,
-        });
+        setReconcileResult(null);
+        return;
       }
+
+      const reconcileResponse = await fetch("/api/profile/reconcile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          header: extractData.hasHeader ? extractData.header : undefined,
+          roles: extractData.roles,
+          education: extractData.education,
+          certifications: extractData.certifications,
+          facts: extractData.facts,
+        }),
+      });
+      const reconcileData = await reconcileResponse.json();
+
+      if (!reconcileResponse.ok) {
+        setExtractNotice(
+          `Could not compare this resume against your existing profile (${reconcileData.error ?? "unknown error"}). Add facts manually below, or edit the skeleton by hand.`,
+        );
+        setReconcileResult(null);
+        return;
+      }
+
+      setReconcileResult(reconcileData);
     } catch {
       setExtractNotice(
         "Could not reach the server to extract this resume. Add facts manually below, or edit the skeleton by hand.",
       );
-      setPendingCandidates(null);
+      setReconcileResult(null);
     } finally {
       setIsExtracting(false);
       setShowUploader(false);
@@ -113,8 +118,19 @@ export default function ProfilePage() {
     setSkeleton(result.skeleton);
     setFacts(result.facts);
     setHasProfile(true);
-    setPendingCandidates(null);
+    setReconcileResult(null);
     setMergeNotice(result.summary);
+    setEditorKey((k) => k + 1);
+  }
+
+  function handleReconcileExistingApplied(result: {
+    header: ProfileHeader;
+    skeleton: Skeleton;
+    facts: Fact[];
+  }) {
+    setHeader(result.header);
+    setSkeleton(result.skeleton);
+    setFacts(result.facts);
     setEditorKey((k) => k + 1);
   }
 
@@ -133,7 +149,7 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      {hasProfile && !showUploader && !pendingCandidates && (
+      {hasProfile && !showUploader && !reconcileResult && (
         <Button
           variant="outline"
           size="sm"
@@ -148,7 +164,7 @@ export default function ProfilePage() {
 
       {isExtracting && (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Extracting your resume with AI...
+          Extracting and comparing your resume with AI...
         </p>
       )}
 
@@ -164,13 +180,11 @@ export default function ProfilePage() {
         </p>
       )}
 
-      {pendingCandidates && (
+      {reconcileResult && (
         <ImportReview
-          candidates={pendingCandidates}
-          existingSkeleton={skeleton}
-          existingFacts={facts}
+          result={reconcileResult}
           onApproved={handleApproved}
-          onCancel={() => setPendingCandidates(null)}
+          onCancel={() => setReconcileResult(null)}
         />
       )}
 
@@ -202,6 +216,10 @@ export default function ProfilePage() {
           }
         />
       </section>
+
+      {hasProfile && (
+        <ReconcileExisting onApplied={handleReconcileExistingApplied} />
+      )}
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Markdown preview</h2>

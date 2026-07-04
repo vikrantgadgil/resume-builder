@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 3.5 complete on branch phase-3-5-knowledge-base. Not yet merged to main.
+Phase 3.6 complete on branch phase-3-6-reconciliation. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,27 @@ Phase 3.5 complete on branch phase-3-5-knowledge-base. Not yet merged to main.
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-04
+**Phase:** 3.6 - Semantic reconciliation
+**Branch:** phase-3-6-reconciliation
+
+**Completed:**
+- Folded PLAN-AMENDMENT-2.md into PLAN.md (new Phase 3.6 section between 3.5 and 4) and CLAUDE.md (hard rules 15 and 16 on semantic comparison with unresolved-on-failure, and DeepSeek never auto-merging or choosing final phrasing); PLAN-AMENDMENT-2.md deleted once merged
+- Cheap pre-filter added (src/lib/knowledge-merge.ts): name normalization, common suffix and parenthetical-acronym stripping, Levenshtein-based string similarity, initials/acronym matching, and date range or year overlap, used to decide which candidate pairs are worth sending to DeepSeek at all. Verified directly against the real known-duplicate names from testing (Radial Inc vs Radial, Chesapeake Utilities Corporation vs Chesapeake Utilities, Vishay Intertechnology with and without Inc, Tech Mahindra vs Tech Mahindra Ltd, Ecolab vs Ecolab Inc, Procter & Gamble vs P&G, CISSP vs its spelled-out form) before touching the database, all matched correctly, and unrelated names correctly did not
+- Batched, Zod-validated DeepSeek comparison pass (src/lib/ai/compare-knowledge.ts): one call per collection type per run classifies all pre-filtered pairs at once (duplicate, likely_same/overlapping, or different/distinct); on any validation failure or missing pairIndex, every affected pair is treated as unresolved and surfaced to the user, never silently accepted or dropped
+- Shared reconciliation engine (src/lib/reconcile-engine.ts) driving both import-time comparison (candidate vs existing) and self-comparison (existing vs existing, for the manual action), with a per-type comparison pair cap (40) and overflow pairs routed to needs-review flagged as not compared, never silently skipped
+- Three-group reconciliation review UI rebuilt (src/components/forms/ImportReview.tsx): auto-skip (exact or AI-confirmed duplicates, not shown), needs review (likely-same pairs shown side by side with keep existing / keep new / keep both, plus a basic edit for the kept value), and new (no match, checkbox as before). Facts get a fourth option, merge, with an editable combined-text box
+- New API routes: POST /api/profile/reconcile (runs the comparison pass on freshly extracted candidates against the current knowledge base) and an extended POST /api/profile/merge that applies both straight new-item adds and needs-review resolutions
+- One-time manual "reconcile existing knowledge base" action (src/components/forms/ReconcileExisting.tsx, POST /api/profile/reconcile-existing and /api/profile/reconcile-existing/apply) that runs the same pre-filter and comparison pass pairwise within the current roles, education, certifications, and facts, so the retrofit case is handled without a separate code path
+- Verified: a forced-malformed DeepSeek comparison response left every affected pair marked "Could not compare automatically" instead of crashing or dropping data; running the manual reconciliation action against the real knowledge base correctly flagged the remaining duplicate roles (Chesapeake Utilities, Vishay Intertechnology, Tech Mahindra, Ecolab; Radial Inc had already been resolved), duplicate education entries (MBA, B.E.), and duplicate certifications (CISSP, CISM, PMP); a third resume import correctly routed 2 overlapping role/fact pairs to needs-review instead of creating duplicates, including a genuine fact-level overlap (a skill-style phrase versus a full narrative sentence about business continuity and disaster recovery) resolved through the merge option, confirming the three-outcome fact model
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None. Some flagged pairs from this session's testing remain unresolved in the review queue by the user's choice, not as a bug: the queue persists correctly across runs and nothing forces an immediate decision, so pairs can be left for a later session.
+
+**Next step:** Open a new session for Phase 4 (job description intake and keywords). Merge phase-3-6-reconciliation into main first per the one-branch-per-phase rule.
 
 ---
 

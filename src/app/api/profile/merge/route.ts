@@ -22,12 +22,46 @@ import {
 } from "@/lib/knowledge-merge";
 import { renderProfileMarkdown } from "@/lib/profile-markdown";
 
+const resolutionAction = z.enum(["keep_existing", "keep_new", "keep_both"]);
+const factResolutionAction = z.enum([
+  "keep_existing",
+  "keep_new",
+  "keep_both",
+  "merge",
+]);
+
+const roleResolutionSchema = z.object({
+  existingId: z.string(),
+  action: resolutionAction,
+  value: roleCandidateSchema,
+});
+const educationResolutionSchema = z.object({
+  existingId: z.string(),
+  action: resolutionAction,
+  value: educationCandidateSchema,
+});
+const certificationResolutionSchema = z.object({
+  existingId: z.string(),
+  action: resolutionAction,
+  value: certificationCandidateSchema,
+});
+const factResolutionSchema = z.object({
+  existingFactId: z.string(),
+  action: factResolutionAction,
+  value: z.string(),
+  tags: z.array(z.string()).default([]),
+});
+
 const bodySchema = z.object({
   header: profileHeaderSchema.optional(),
   approvedRoles: z.array(roleCandidateSchema).default([]),
   approvedEducation: z.array(educationCandidateSchema).default([]),
   approvedCertifications: z.array(certificationCandidateSchema).default([]),
   approvedFacts: z.array(factCandidateSchema).default([]),
+  roleResolutions: z.array(roleResolutionSchema).default([]),
+  educationResolutions: z.array(educationResolutionSchema).default([]),
+  certificationResolutions: z.array(certificationResolutionSchema).default([]),
+  factResolutions: z.array(factResolutionSchema).default([]),
 });
 
 export async function POST(request: Request) {
@@ -51,6 +85,10 @@ export async function POST(request: Request) {
     approvedEducation,
     approvedCertifications,
     approvedFacts,
+    roleResolutions,
+    educationResolutions,
+    certificationResolutions,
+    factResolutions,
   } = parsed.data;
 
   const userId = session.user.id!;
@@ -83,11 +121,53 @@ export async function POST(request: Request) {
     .filter((c) => !isDuplicateCertification(c, skeleton.certifications))
     .map((c) => ({ id: crypto.randomUUID(), ...c }));
 
-  const mergedSkeleton = {
-    roles: [...skeleton.roles, ...newRoles],
-    education: [...skeleton.education, ...newEducation],
-    certifications: [...skeleton.certifications, ...newCertifications],
-  };
+  let roles = [...skeleton.roles, ...newRoles];
+  let education = [...skeleton.education, ...newEducation];
+  let certifications = [...skeleton.certifications, ...newCertifications];
+
+  for (const resolution of roleResolutions) {
+    if (resolution.action === "keep_existing") continue;
+    if (resolution.action === "keep_new") {
+      roles = roles.map((role) =>
+        role.id === resolution.existingId
+          ? { id: role.id, ...resolution.value }
+          : role,
+      );
+    } else if (resolution.action === "keep_both") {
+      roles = [...roles, { id: crypto.randomUUID(), ...resolution.value }];
+    }
+  }
+
+  for (const resolution of educationResolutions) {
+    if (resolution.action === "keep_existing") continue;
+    if (resolution.action === "keep_new") {
+      education = education.map((entry) =>
+        entry.id === resolution.existingId
+          ? { id: entry.id, ...resolution.value }
+          : entry,
+      );
+    } else if (resolution.action === "keep_both") {
+      education = [...education, { id: crypto.randomUUID(), ...resolution.value }];
+    }
+  }
+
+  for (const resolution of certificationResolutions) {
+    if (resolution.action === "keep_existing") continue;
+    if (resolution.action === "keep_new") {
+      certifications = certifications.map((entry) =>
+        entry.id === resolution.existingId
+          ? { id: entry.id, ...resolution.value }
+          : entry,
+      );
+    } else if (resolution.action === "keep_both") {
+      certifications = [
+        ...certifications,
+        { id: crypto.randomUUID(), ...resolution.value },
+      ];
+    }
+  }
+
+  const mergedSkeleton = { roles, education, certifications };
 
   const newFacts = approvedFacts.filter(
     (f) => !isDuplicateFact(f.text, existingFacts),
@@ -109,8 +189,34 @@ export async function POST(request: Request) {
           .returning()
       : [];
 
-  const allFacts = [...existingFacts, ...insertedFacts];
-  const markdown = renderProfileMarkdown(header, mergedSkeleton, allFacts);
+  for (const resolution of factResolutions) {
+    if (resolution.action === "keep_existing") continue;
+    if (resolution.action === "keep_new" || resolution.action === "merge") {
+      await db
+        .update(factsTable)
+        .set({ text: resolution.value, tags: resolution.tags, updatedAt: new Date() })
+        .where(eq(factsTable.id, resolution.existingFactId));
+    } else if (resolution.action === "keep_both") {
+      const [inserted] = await db
+        .insert(factsTable)
+        .values({
+          userId,
+          text: resolution.value,
+          roleRef: null,
+          tags: resolution.tags,
+          source: "import" as const,
+        })
+        .returning();
+      insertedFacts.push(inserted);
+    }
+  }
+
+  const finalFacts = await db
+    .select()
+    .from(factsTable)
+    .where(eq(factsTable.userId, userId));
+
+  const markdown = renderProfileMarkdown(header, mergedSkeleton, finalFacts);
 
   if (existingProfile) {
     await db
@@ -129,7 +235,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     header,
     skeleton: mergedSkeleton,
-    facts: allFacts,
+    facts: finalFacts,
     addedRoles: newRoles.length,
     addedEducation: newEducation.length,
     addedCertifications: newCertifications.length,
@@ -139,5 +245,9 @@ export async function POST(request: Request) {
     skippedDuplicateCertifications:
       approvedCertifications.length - newCertifications.length,
     skippedDuplicateFacts: approvedFacts.length - newFacts.length,
+    resolvedRoles: roleResolutions.length,
+    resolvedEducation: educationResolutions.length,
+    resolvedCertifications: certificationResolutions.length,
+    resolvedFacts: factResolutions.length,
   });
 }
