@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { JobDescriptionInput } from "@/components/forms/JobDescriptionInput";
+import { ResumeGenerator } from "@/components/preview/ResumeGenerator";
 import type { RankedKeyword } from "@/types/application";
 
 export default function GeneratorPage() {
@@ -205,6 +206,10 @@ export default function GeneratorPage() {
           )}
         </div>
       )}
+
+      <hr className="border-zinc-200 dark:border-zinc-800" />
+
+      <ResumeGenerator />
     </div>
   );
 }

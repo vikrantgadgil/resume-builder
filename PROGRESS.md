@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 4 complete on branch phase-4-jd-keywords. Not yet merged to main.
+Phase 5 complete on branch phase-5-pdf. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,26 @@ Phase 4 complete on branch phase-4-jd-keywords. Not yet merged to main.
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-04
+**Phase:** 5 - PDF generation and preview
+**Branch:** phase-5-pdf
+
+**Completed:**
+- Single ATS-compliant React-PDF template (src/lib/pdf/ResumeDocument.tsx): no tables, columns, headers, footers, or graphics, Helvetica only, sizes 10 to 12, sections Experience, Education, Certifications, Skills. Decided in session: since the knowledge base no longer has literal summary or skills fields (Phase 3.5/3.6 replaced them with roles/education/certifications plus a fact pool), Experience renders each role with its attached facts as bullets, and Skills renders unattached facts as a flat list, preserving the section name from PLAN.md while sourcing it from the new data shape
+- Decided in session: since the knowledge base can hold far more than fits on two pages and Phase 6's real relevance-based selection does not exist yet, this phase uses a manual selection checklist (src/components/preview/ResumeGenerator.tsx) as an explicit placeholder. Every role, education entry, certification, and fact is checked by default; the user unchecks items to fit within 2 pages; generation always reflects exactly what is checked, nothing is ever silently cut
+- Page count enforced by actually rendering the PDF client-side with @react-pdf/renderer, then counting pages with pdfjs-dist loaded from the resulting blob. If the count exceeds 2, generation is refused with the actual page count shown and no preview or download offered, rather than truncating content or silently producing a longer PDF
+- In-browser preview via an iframe on the generated blob URL, plus a download button, both entirely client-side, no API route or serverless function involved
+- Bug found and fixed: pdfjs-dist's browser build references DOMMatrix at module top level, which crashed with "DOMMatrix is not defined" because Next.js evaluates client component modules during server-side rendering too. Fixed by lazy-loading pdfjs-dist with a dynamic import inside countPdfPages, so the module is only touched when the function actually runs in the browser, never during SSR module evaluation
+- Also simplified next.config.ts's serverExternalPackages from ["pdf-parse", "pdfjs-dist"] down to just ["pdf-parse"], since marking pdfjs-dist external too was colliding with its new client-side usage; verified the Phase 2 server-side parsing route still works unchanged with this narrower config
+- Verified: generation completes well under 5 seconds, the PDF opens cleanly in a real PDF reader (not just the in-browser preview), copy-pasting its text preserves reading order (header, then sections in order, no scrambled columns), and the two-page limit is enforced with a visible message rather than silent truncation
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None. Two known, expected gaps carried forward rather than fixed here: visual polish of the PDF template is deferred to a post-Phase-8 aesthetics pass, and most facts are currently unattached to any role (no roleRef), which will be addressed in a Phase 5.5 session before Phase 6 needs clean per-role fact grouping for its selection and phrasing logic.
+
+**Next step:** Open a new session for Phase 5.5 (fact-to-role attachment cleanup) or Phase 6 (AI content tailoring), whichever the user decides first. Merge phase-5-pdf into main first per the one-branch-per-phase rule.
 
 ---
 
