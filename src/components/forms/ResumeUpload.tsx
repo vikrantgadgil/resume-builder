@@ -11,7 +11,11 @@ function isAcceptedFile(file: File): boolean {
   return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-export function ResumeUpload() {
+export function ResumeUpload({
+  onConfirm,
+}: {
+  onConfirm: (text: string) => void;
+}) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +146,9 @@ export function ResumeUpload() {
             value={extractedText}
             className="h-96 w-full resize-y rounded-lg border border-zinc-300 bg-white p-4 font-mono text-xs text-black dark:border-zinc-700 dark:bg-black dark:text-zinc-50"
           />
+          <Button onClick={() => onConfirm(extractedText)} className="self-start">
+            Confirm and continue
+          </Button>
         </div>
       )}
     </div>
