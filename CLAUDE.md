@@ -33,6 +33,8 @@ A single-user resume generation system. It stores a superset knowledge base of e
 12. Update PROGRESS.md at the end of every session: what was completed, what is next, any blockers.
 13. Resume imports must never silently overwrite existing knowledge base content. All merges (skeleton reconciliation, fact candidates) require user review and approval before save.
 14. Skeleton fields (employer, title, dates, degree, certification, contact info) are never generated, altered, or echoed back as editable content by the LLM. They render from the database only.
+15. Skeleton and fact duplicate/overlap detection must include a semantic comparison step, not exact-match only. Any DeepSeek comparison output must pass a Zod schema; on validation failure, treat the pair as unresolved and surface it to the user, never silently accept or drop it.
+16. DeepSeek may classify and compare candidate pairs during reconciliation but must never auto-merge or choose a final phrasing without user confirmation.
 
 ## Environment notes
 

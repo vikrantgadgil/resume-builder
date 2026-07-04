@@ -88,6 +88,21 @@ Add: facts table (new Drizzle table):
 - source (text): 'import' or 'manual'
 - createdAt, updatedAt
 
+## Phase 3.6: Semantic reconciliation
+
+Branch: `phase-3-6-reconciliation`
+
+- Implement a cheap pre-filter (normalize case, strip common suffixes/prefixes such as Inc, LLC, Corporation, and parenthetical acronyms, check substring or high string-similarity overlap on employer/institution/certification name, check overlapping date ranges where present) before any DeepSeek comparison call. Only pre-filtered candidate pairs go to DeepSeek, not the full cross product
+- DeepSeek comparison pass on pre-filtered pairs only: given an existing entry and a new candidate, classify as exact duplicate, likely same entity with different phrasing, or genuinely different
+- Three-group reconciliation review UI for roles, education, and certifications: auto-skip (exact duplicates, unchanged from Phase 3.5), needs review (likely-same pairs shown side by side, user picks a phrasing, edits a merged version, or confirms they are different and keeps both), new (no match, added as before)
+- Fact rationalization with a three-outcome comparison: duplicate (same claim, same granularity, suggest keeping one), overlapping (same underlying claim at different granularity, suggest keeping both or merging, never forced), distinct (different claims, keep both)
+- Every DeepSeek comparison response Zod validated; on validation failure, treat the pair as unresolved and surface it to the user, never silently accept or drop it
+- Cap the number of comparison pairs sent per import or per manual reconciliation run at a reasonable batch size; if exceeded, tell the user some items were not compared rather than silently skipping them
+- One-time manual "reconcile existing knowledge base" action that runs the same comparison logic across current collections, not just future imports
+- Hard rule carried forward: DeepSeek classifies and compares only, it never fabricates a merged phrasing the user has not seen or approved
+
+Acceptance: running the manual reconciliation action against the current knowledge base correctly flags the known duplicate roles, the duplicate education entries, and the duplicate certifications, and after user review the skeleton contains one clean entry per real role, degree, and certification. A subsequent test import of a third resume with at least one deliberately overlapping role and fact correctly routes them to needs-review rather than creating new duplicates. Forced-malformed DeepSeek comparison responses are treated as unresolved, not silently accepted or dropped.
+
 ## Phase 4: Job description intake and keywords
 
 Branch: `phase-4-jd-keywords`
