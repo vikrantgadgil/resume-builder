@@ -6,12 +6,16 @@ import {
   type ProfileHeader,
 } from "@/types/profile";
 
-const SYSTEM_INSTRUCTIONS = `You extract information from resume text into JSON. You only extract what is present in the text given to you. You never invent an employer, job title, date, degree, school, certification, or skill that is not present in the source text. Break the resume down into two kinds of output: a skeleton (roles, education, certifications, using only the fields asked for) and facts (every other claim: bullet points, achievements, skills, summary statements, each as its own short freeform sentence, optionally tagged with loose themes such as cyber, pmo, sap, transformation, leadership, cloud). If a field cannot be found in the source text, leave it as an empty string or empty array. Respond with JSON only, no other text.`;
+const SYSTEM_INSTRUCTIONS = `You extract information from resume text into JSON. You only extract what is present in the text given to you. You never invent an employer, job title, date, degree, school, certification, or skill that is not present in the source text. Break the resume down into two kinds of output: a skeleton (roles, education, certifications, using only the fields asked for) and facts (every other claim: bullet points, achievements, skills, summary statements, each as its own short freeform sentence, optionally tagged with loose themes such as cyber, pmo, sap, transformation, leadership, cloud). If a field cannot be found in the source text, leave it as an empty string or empty array.
+
+For each fact, also decide whether it clearly belongs to one specific role from the roles you extracted, based on which job section the fact appeared under in the source text, a company name it mentions, a role-specific initiative or program name, or a timeframe matching that role's dates. If so, set suggestedRoleEmployer and suggestedRoleTitle to match that role's employer and title exactly as you wrote them in the roles array, and set confidence to "high", "medium", or "low". If the fact is generic, cross-cutting, or you are not confident it belongs to one specific role, leave suggestedRoleEmployer and suggestedRoleTitle as empty strings and confidence as null. Do not guess. It is better to leave a fact unattached than to attach it to the wrong role or to whichever role is most recent or senior by default.
+
+Respond with JSON only, no other text.`;
 
 const SKELETON_AND_FACTS_FIELDS = `"roles": [{ "employer": string, "title": string, "startDate": string, "endDate": string, "location": string }],
   "education": [{ "institution": string, "degree": string, "field": string, "year": string }],
   "certifications": [{ "name": string, "issuer": string, "year": string }],
-  "facts": [{ "text": string, "tags": string[] }]`;
+  "facts": [{ "text": string, "tags": string[], "suggestedRoleEmployer": string, "suggestedRoleTitle": string, "confidence": "high" | "medium" | "low" | null }]`;
 
 const SKELETON_AND_FACTS_SHAPE = `{\n  ${SKELETON_AND_FACTS_FIELDS}\n}`;
 

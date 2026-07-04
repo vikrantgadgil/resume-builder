@@ -222,3 +222,29 @@ export function generateSelfPairs(length: number): [number, number][] {
   }
   return pairs;
 }
+
+// Resolves an AI-suggested employer/title pair (from extraction time, where
+// only candidate roles exist, not real role ids yet) against a final list of
+// saved roles. Tries an exact match first, then falls back to a loose
+// employer-name match, since the role the suggestion pointed at may have
+// been merged into an existing role with different phrasing by the time this
+// runs. Returns null rather than guessing if nothing reasonable is found.
+export function resolveSuggestedRole(
+  suggestedEmployer: string,
+  suggestedTitle: string,
+  roles: Role[],
+): string | null {
+  if (!suggestedEmployer.trim()) return null;
+
+  const exact = roles.find(
+    (role) =>
+      norm(role.employer) === norm(suggestedEmployer) &&
+      (!suggestedTitle.trim() || norm(role.title) === norm(suggestedTitle)),
+  );
+  if (exact) return exact.id;
+
+  const loose = roles.find((role) =>
+    namesMatchLoosely(role.employer, suggestedEmployer),
+  );
+  return loose ? loose.id : null;
+}

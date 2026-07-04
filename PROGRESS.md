@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 5 complete on branch phase-5-pdf. Not yet merged to main.
+Phase 5.5 complete on branch phase-5-5-fact-attachment. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,27 @@ Phase 5 complete on branch phase-5-pdf. Not yet merged to main.
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-04
+**Phase:** 5.5 - Automatic fact-to-role attachment
+**Branch:** phase-5-5-fact-attachment
+
+**Completed:**
+- Folded PLAN-AMENDMENT-3.md into PLAN.md (new Phase 5.5 section between Phase 5 and Phase 6); reviewed all 16 existing hard rules and confirmed none needed changing, since Zod validation (rule 5), no invented facts (rule 6), and required user review before any data change (rule 13) already cover this use case. No new hard rule added. PLAN-AMENDMENT-3.md deleted once merged
+- Extended the Phase 3.5 extraction prompt (src/lib/ai/extract-knowledge.ts) so each fact candidate also comes back with an optional suggestedRoleEmployer, suggestedRoleTitle, and confidence, based on which job section the fact appeared under, a company name, or a matching timeframe. Explicitly instructed to leave generic or cross-cutting facts unattached rather than guessing or defaulting to the most recent or senior role
+- Surfaced the suggestion in the existing Phase 3.5 merge review UI (src/components/forms/ImportReview.tsx): each new fact shows its suggested role with a checkbox, checked by default only when a suggestion exists, unchecking leaves it unattached. No new review UI paradigm
+- Resolution happens at merge time (src/lib/knowledge-merge.ts, resolveSuggestedRole): since extraction only knows about candidate roles, not final saved role ids, the merge route (src/app/api/profile/merge/route.ts) matches the accepted suggestion's employer and title against the final merged roles list after all role resolutions are applied, falling back to a loose employer-name match if the exact phrasing changed during reconciliation, and leaving the fact unattached if nothing reasonable is found
+- Built the one-time "suggest role attachments for unattached facts" action (src/components/forms/SuggestAttachments.tsx, src/app/api/profile/suggest-attachments and .../apply): sends current unattached facts and current skeleton roles to DeepSeek in one batched classification call, Zod validated (src/types/role-attachment.ts), returns a review list of fact plus suggested role plus confidence, with per-item accept/reject, bulk accept all, and bulk reject all. No fact is attached until the user clicks apply
+- Bug found and fixed during interactive testing: the batch cap for this action was initially set to 40, copied from Phase 3.6's pairwise comparison cap. That cap exists there to control combinatorial explosion of pair counts, which does not apply here since this is a single classification call over all facts at once. With 90 real unattached facts ordered by creation date, the first 40 happened to be almost entirely generic leadership and philosophy statements with no company signal, so the first run correctly found zero matches while also reporting facts skipped due to volume, which looked like a bug but was actually the cap firing at the wrong layer. Fixed by raising the cap to 200 (a safety net, not a routine limit) so a realistic single-user fact pool is covered in one run
+- Verified: forced-malformed AI response left every fact unattached with a clear error, not a crash; the retroactive action, once the cap was fixed, correctly proposed attachments for facts with real company-specific signal (Kaiser Permanente, Chesapeake Utilities, and others) and correctly left generic or cross-cutting facts out of the review list entirely; after accepting suggestions, the Phase 5 PDF preview shows real bullet content under the correct roles; a subsequent test import suggested roleRef at extraction time without needing the retroactive action
+- Decided in session: for a fact that could plausibly apply to more than one role, the guidance going forward is to split it into role-specific versions (one fact per role) rather than extending a fact to reference multiple roles. Revisit only if this turns out to be a frequent recurring problem
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None. Manual selection friction in the Phase 5 checklist (confirmed, not a bug) is the expected motivation for Phase 6's automatic relevance-based selection. Also noted, not addressed here: several duplicate role pairs from Phase 3.6 testing (Chesapeake Utilities, Vishay Intertechnology, Tech Mahindra, Ecolab, Procter & Gamble each still have a normal-case and an ALL CAPS entry) remain unresolved in the reconciliation review queue; this does not block Phase 6 but is worth clearing before it causes fact attachments to split across duplicate role entries.
+
+**Next step:** Open a new session for Phase 6 (AI content tailoring). Merge phase-5-5-fact-attachment into main first per the one-branch-per-phase rule.
 
 ---
 

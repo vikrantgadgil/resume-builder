@@ -94,9 +94,16 @@ export const certificationCandidateSchema = z.object({
 
 export type CertificationCandidate = z.infer<typeof certificationCandidateSchema>;
 
+export const attachmentConfidenceSchema = z.enum(["high", "medium", "low"]);
+
+export type AttachmentConfidence = z.infer<typeof attachmentConfidenceSchema>;
+
 export const factCandidateSchema = z.object({
   text: z.string(),
   tags: z.array(z.string()).default([]),
+  suggestedRoleEmployer: z.string().default(""),
+  suggestedRoleTitle: z.string().default(""),
+  confidence: attachmentConfidenceSchema.nullable().default(null),
 });
 
 export type FactCandidate = z.infer<typeof factCandidateSchema>;

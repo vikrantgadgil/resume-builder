@@ -6,6 +6,7 @@ import { ResumeUpload } from "@/components/forms/ResumeUpload";
 import { ProfileEditor } from "@/components/forms/ProfileEditor";
 import { ImportReview, type ReconcileResult } from "@/components/forms/ImportReview";
 import { ReconcileExisting } from "@/components/forms/ReconcileExisting";
+import { SuggestAttachments } from "@/components/forms/SuggestAttachments";
 import { AddFact } from "@/components/forms/AddFact";
 import { FactsList } from "@/components/forms/FactsList";
 import { renderProfileMarkdown } from "@/lib/profile-markdown";
@@ -219,6 +220,10 @@ export default function ProfilePage() {
 
       {hasProfile && (
         <ReconcileExisting onApplied={handleReconcileExistingApplied} />
+      )}
+
+      {hasProfile && (
+        <SuggestAttachments onApplied={handleReconcileExistingApplied} />
       )}
 
       <section className="flex flex-col gap-2">

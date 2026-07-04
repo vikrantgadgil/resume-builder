@@ -19,6 +19,7 @@ import {
   isDuplicateEducation,
   isDuplicateFact,
   isDuplicateRole,
+  resolveSuggestedRole,
 } from "@/lib/knowledge-merge";
 import { renderProfileMarkdown } from "@/lib/profile-markdown";
 
@@ -181,7 +182,11 @@ export async function POST(request: Request) {
             newFacts.map((f) => ({
               userId,
               text: f.text,
-              roleRef: null,
+              roleRef: resolveSuggestedRole(
+                f.suggestedRoleEmployer,
+                f.suggestedRoleTitle,
+                roles,
+              ),
               tags: f.tags,
               source: "import" as const,
             })),

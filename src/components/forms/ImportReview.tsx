@@ -104,7 +104,12 @@ export function ImportReview({
     result.certifications.newItems.map((c) => ({ ...c, include: true })),
   );
   const [facts, setFacts] = useState(
-    result.facts.newItems.map((f) => ({ ...f, include: true, tagsText: f.tags.join(", ") })),
+    result.facts.newItems.map((f) => ({
+      ...f,
+      include: true,
+      tagsText: f.tags.join(", "),
+      attachSuggestedRole: Boolean(f.suggestedRoleEmployer),
+    })),
   );
 
   const [roleReviews, setRoleReviews] = useState(
@@ -158,6 +163,15 @@ export function ImportReview({
             .map((f) => ({
               text: f.text,
               tags: f.tagsText.split(",").map((t) => t.trim()).filter(Boolean),
+              suggestedRoleEmployer:
+                f.attachSuggestedRole && f.suggestedRoleEmployer
+                  ? f.suggestedRoleEmployer
+                  : "",
+              suggestedRoleTitle:
+                f.attachSuggestedRole && f.suggestedRoleTitle
+                  ? f.suggestedRoleTitle
+                  : "",
+              confidence: null,
             })),
           roleResolutions: roleReviews.map((r) => ({
             existingId: r.existingItem.id,
@@ -609,6 +623,26 @@ export function ImportReview({
                   placeholder="Tags (comma separated)"
                   className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-black dark:border-zinc-700 dark:bg-black dark:text-zinc-50"
                 />
+                {fact.suggestedRoleEmployer && (
+                  <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <input
+                      type="checkbox"
+                      checked={fact.attachSuggestedRole}
+                      onChange={(e) =>
+                        setFacts((prev) =>
+                          prev.map((f, i) =>
+                            i === index
+                              ? { ...f, attachSuggestedRole: e.target.checked }
+                              : f,
+                          ),
+                        )
+                      }
+                    />
+                    Suggested role: {fact.suggestedRoleTitle} at{" "}
+                    {fact.suggestedRoleEmployer}
+                    {fact.confidence ? ` (${fact.confidence} confidence)` : ""}
+                  </label>
+                )}
               </div>
             </div>
           ))}
