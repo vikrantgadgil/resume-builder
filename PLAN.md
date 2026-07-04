@@ -151,6 +151,20 @@ Scope changes from rephrase-only to select-then-phrase:
 
 Acceptance: tailored resume includes target keywords, contains no facts absent from the knowledge base, skeleton fields match the database exactly, and a forced-invalid API response falls back cleanly.
 
+## Phase 6.5: One-click generation flow
+
+Branch: `phase-6-5-oneclick-generation`
+
+- Add a single primary action on the generator page, for example "Generate tailored resume," visible as soon as a JD has been entered or uploaded
+- Clicking it runs the full existing pipeline automatically end to end: keyword extraction (Phase 4), fact selection (Phase 6 step 1), phrasing (Phase 6 step 2), PDF generation (Phase 5), with no intermediate click required
+- The existing selection checklist and phrasing diff screens remain fully available, but reframed as an optional "Review selection" and "Review phrasing" step, collapsed by default, expandable if the user wants to inspect or adjust before the PDF is finalized
+- If the user does expand and adjust the selection or phrasing, regenerating the PDF from that point must not require restarting the entire pipeline from scratch
+- Default behavior with zero manual adjustment must still respect the two-page limit and produce a complete, downloadable PDF
+- A clearly visible "customize before generating" affordance should exist for users who want the granular control, but it must not be the default required path
+- No change to the underlying selection, phrasing, or PDF logic built in Phase 6. This phase is a UX and flow change only, wiring existing pieces into a streamlined default path plus an optional detailed path
+
+Acceptance: pasting a job description and clicking a single generate action produces a complete, downloadable, two-page-compliant tailored PDF with no other required clicks. A user who wants to inspect or adjust the selection or phrasing before finalizing can still do so via the optional review steps. Regenerating after an adjustment does not require re-running unaffected earlier steps.
+
 ## Phase 7: ATS scoring
 
 Branch: `phase-7-ats-scoring`
