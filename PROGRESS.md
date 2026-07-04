@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 0 complete on branch phase-0-setup, pushed to GitHub. Not yet merged to main.
+Phase 1 complete on branch phase-1-schema-auth. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,25 @@ Phase 0 complete on branch phase-0-setup, pushed to GitHub. Not yet merged to ma
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-03
+**Phase:** 1 - Schema and auth
+**Branch:** phase-1-schema-auth
+
+**Completed:**
+- Drizzle schema added for NextAuth tables (user, account, session, verificationToken, authenticator), plus profiles (header jsonb, content jsonb, markdown text, timestamps) and applications (jobTitle, company, jobDescription, resumeBlobUrl, atsScore, atsRulesetVersion, scoredAt, appliedDate, timestamps)
+- Migration generated and applied to Neon; all 7 tables confirmed present
+- NextAuth v5 wired up with the Drizzle adapter and Google OAuth, JWT session strategy so the proxy/middleware auth check stays edge-compatible
+- Protected (dashboard) route group added (profile, generator, tracking) with a server-side session check in the layout plus proxy.ts (Next 16's middleware convention) redirecting unauthenticated visits to /sign-in with a callbackUrl
+- Sign-in page added with a Google sign-in button (server action)
+- Bug found and fixed: the Google provider was initially configured as bare `Google` (Auth.js v5 auto-detects env vars named AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET), but this project's .env.local convention is GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET per CLAUDE.md, so the provider was receiving undefined credentials. Fixed by passing clientId/clientSecret explicitly from process.env in src/auth.ts
+- `pnpm build` verified clean with zero TypeScript errors; unauthenticated redirects verified for /profile, /generator, /tracking
+
+**Blockers:** None.
+
+**Next step:** Open a new session for Phase 2 (resume upload and parsing). Merge phase-1-schema-auth into main first per the one-branch-per-phase rule.
 
 ---
 
