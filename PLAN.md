@@ -125,6 +125,17 @@ Branch: `phase-5-pdf`
 
 Acceptance: generation completes in under 5 seconds in the browser; PDF opens in Acrobat and copy-paste of its text preserves reading order; two-page limit enforced.
 
+## Phase 5.5: Automatic fact-to-role attachment
+
+Branch: `phase-5-5-fact-attachment`
+
+- Extend Phase 3.5 extraction to suggest roleRef per fact candidate with confidence, surfaced in the existing merge review UI
+- Build the "Suggest role attachments for unattached facts" one-time action for the existing fact pool, with a review list (fact, suggested role, accept/reject, bulk accept-all)
+- Zod validation on all DeepSeek suggestion output, unresolved facts remain unattached rather than guessed
+- No new hard rule needed beyond what already exists; this amendment operationalizes existing rules (Zod validation, user confirmation, no fabrication) for a new use case
+
+Acceptance: running the retroactive suggestion action against the current knowledge base correctly proposes attachments for facts with clear role-specific signals (for example, Kaiser-specific program facts attaching to the Kaiser Permanente role, Chesapeake-specific initiatives attaching to the Chesapeake Utilities role) and correctly leaves generic or cross-cutting facts unattached rather than force-matching them. After reviewing and accepting the suggestions, a meaningful majority of facts with real role-specific content are attached, and the Phase 5 PDF preview shows visible bullet content under the relevant roles. A subsequent test import correctly suggests roleRef at extraction time without requiring the retroactive action.
+
 ## Phase 6: AI content tailoring (amended)
 
 Branch: `phase-6-ai-tailoring`
