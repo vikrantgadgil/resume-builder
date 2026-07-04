@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 1 complete on branch phase-1-schema-auth. Not yet merged to main.
+Phase 2 complete on branch phase-2-upload-parse. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,26 @@ Phase 1 complete on branch phase-1-schema-auth. Not yet merged to main.
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-03
+**Phase:** 2 - Resume upload and parsing
+**Branch:** phase-2-upload-parse
+
+**Completed:**
+- Drag and drop upload UI on the profile page (src/components/forms/ResumeUpload.tsx), accepting .pdf and .docx only, with click-to-browse as a fallback
+- Client-side validation rejects unsupported file types and files over 5MB immediately on selection, before any upload begins; server route re-validates both as defense in depth
+- Server route (src/app/api/parse/route.ts) parses PDF with pdf-parse and DOCX with mammoth into raw text, factored into src/lib/parse.ts so Phase 4 can reuse it for job description parsing
+- Extracted raw text shown in a read-only textarea for user confirmation; nothing is stored in Neon or touches the Drizzle schema in this phase
+- Bug found and fixed: pdf-parse (pdfjs-dist under the hood) failed with "Setting up fake worker failed" when parsed through the bundled Next.js dev/build output, because Turbopack rewrites the worker module path and pdfjs can't resolve it. Fixed by adding `serverExternalPackages: ["pdf-parse", "pdfjs-dist"]` to next.config.ts so these packages are required directly by Node instead of bundled
+- Also suppressed pdf-parse's default per-page "-- page_number of total_number --" marker (pageJoiner: "") so extracted resume text reads cleanly
+- Verified in the browser with real PDF and DOCX resumes (readable extracted text), an oversized file (clear rejection message), and an unsupported file type (clear rejection message)
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None.
+
+**Next step:** Open a new session for Phase 3 (profile extraction and editing). Merge phase-2-upload-parse into main first per the one-branch-per-phase rule.
 
 ---
 
