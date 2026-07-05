@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ResumeUpload } from "@/components/forms/ResumeUpload";
+import {
+  MultiSourceUpload,
+  type SynthesisResult,
+} from "@/components/forms/MultiSourceUpload";
+import { SynthesisReview } from "@/components/forms/SynthesisReview";
 import { ProfileEditor } from "@/components/forms/ProfileEditor";
 import { ImportReview, type ReconcileResult } from "@/components/forms/ImportReview";
 import { ReconcileExisting } from "@/components/forms/ReconcileExisting";
@@ -31,6 +36,9 @@ export default function ProfilePage() {
   const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(
     null,
   );
+  const [synthesisResult, setSynthesisResult] = useState<SynthesisResult | null>(
+    null,
+  );
   const [mergeNotice, setMergeNotice] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
 
@@ -42,8 +50,6 @@ export default function ProfilePage() {
           setHeader(data.profile.header);
           setSkeleton(data.profile.skeleton);
           setHasProfile(true);
-        } else {
-          setShowUploader(true);
         }
         setFacts(data.facts ?? []);
       })
@@ -150,6 +156,35 @@ export default function ProfilePage() {
         </p>
       </div>
 
+      {!hasProfile && !synthesisResult && (
+        <div className="flex flex-col gap-4">
+          <MultiSourceUpload onSynthesized={setSynthesisResult} />
+          <details className="rounded-lg border border-zinc-300 p-3 dark:border-zinc-700">
+            <summary className="cursor-pointer text-sm font-medium">
+              Import a single resume instead
+            </summary>
+            <div className="mt-3">
+              <ResumeUpload onConfirm={handleConfirmedText} />
+            </div>
+          </details>
+        </div>
+      )}
+
+      {synthesisResult && (
+        <SynthesisReview
+          result={synthesisResult}
+          onSaved={(result) => {
+            setHeader(result.header);
+            setSkeleton(result.skeleton);
+            setFacts(result.facts);
+            setHasProfile(true);
+            setSynthesisResult(null);
+            setEditorKey((k) => k + 1);
+          }}
+          onCancel={() => setSynthesisResult(null)}
+        />
+      )}
+
       {hasProfile && !showUploader && !reconcileResult && (
         <Button
           variant="outline"
@@ -161,7 +196,9 @@ export default function ProfilePage() {
         </Button>
       )}
 
-      {showUploader && <ResumeUpload onConfirm={handleConfirmedText} />}
+      {hasProfile && showUploader && (
+        <ResumeUpload onConfirm={handleConfirmedText} />
+      )}
 
       {isExtracting && (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">

@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 6.5 complete on branch phase-6-5-oneclick-generation. Not yet merged to main.
+Phase 6.6 complete on branch phase-6-6-quality-and-synthesis. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,24 @@ Phase 6.5 complete on branch phase-6-5-oneclick-generation. Not yet merged to ma
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-05
+**Phase:** 6.6 - Model upgrade, multi-source synthesis, and generation quality
+**Branch:** phase-6-6-quality-and-synthesis
+
+**Completed:**
+- Folded PLAN-AMENDMENT-5.md into PLAN.md (new Phase 6.6 section between Phase 6.5 and Phase 7, covering all three parts as one focused session); PLAN-AMENDMENT-5.md deleted once merged
+- Part 1, model upgrade: verified the current DeepSeek model identifier against official API docs and a live test call rather than assuming it, since deepseek-chat and deepseek-reasoner deprecate 2026-07-24. Replaced deepseek-chat with deepseek-v4-pro across every runtime AI call (extraction/synthesis, reconciliation, selection, phrasing, attachment suggestion), centralized as a single DEEPSEEK_MODEL constant in src/lib/ai/deepseek.ts so future model changes are a one-line edit
+- Part 2, multi-source synthesis ingestion: new flow (src/components/forms/MultiSourceUpload.tsx, src/lib/ai/synthesize-knowledge.ts, POST /api/profile/synthesize and .../save) that accepts multiple resume files and optional pasted text together and sends them to DeepSeek in one synthesis pass, deduplicating roles and facts and suggesting role attachments as part of that single pass rather than as later reconciliation. Still ends in one review screen (src/components/forms/SynthesisReview.tsx) before save, Zod validated. This path is for initial seeding only (rejected server-side if a profile already exists); the existing single-resume import path (Phase 3.5/3.6) remains unchanged and available for adding one document later to an established knowledge base. On the profile page, synthesis is now the primary path shown when no profile exists yet, with single-resume import demoted to a collapsed "Import a single resume instead" option
+- Part 3, generation quality fixes, based on real JD testing that showed weaker output than pasting resumes directly into a frontier chat model: rewrote the selection prompt (src/lib/ai/select-facts.ts) to explicitly instruct avoiding near-duplicate facts (same underlying claim selected only once), covering multiple relevant roles instead of concentrating on one, and making fuller use of the two-page budget when the knowledge base supports it. Rewrote the phrasing prompt (src/lib/ai/phrase-bullets.ts) to remove the "return close to unchanged if it doesn't benefit from rewording" escape hatch that was producing passthrough output, replacing it with an explicit instruction to actively adapt phrasing toward the job description's vocabulary and priorities. The no-invented-facts guardrail is unchanged and still enforced in both prompts
+- Verified: forced-malformed synthesis response falls back cleanly with a clear notice and no crash; reseeded the knowledge base from the same source resumes using the new multi-source synthesis flow in a single pass; ran a real job description through one-click generation and confirmed noticeably improved output against the pre-Phase-6.6 baseline (no duplicate roles, coverage across multiple relevant roles, phrasing that reads as adapted to the JD rather than passthrough)
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None. Two follow-ups identified this session, neither addressed here: formatting polish of the generated PDF (already deferred to the planned post-Phase-8 aesthetics pass), and post-generation manual editing of a tailored resume before download (newly identified this session, not yet scoped into any phase).
+
+**Next step:** Open a new session for Phase 7 (ATS scoring), or scope the post-generation editing capability first if that takes priority. Merge phase-6-6-quality-and-synthesis into main first per the one-branch-per-phase rule.
 
 ---
 

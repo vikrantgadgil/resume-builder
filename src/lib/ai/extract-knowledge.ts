@@ -1,4 +1,4 @@
-import { getDeepSeekClient } from "./deepseek";
+import { DEEPSEEK_MODEL, getDeepSeekClient } from "./deepseek";
 import {
   extractionResultSchema,
   profileHeaderSchema,
@@ -43,7 +43,7 @@ async function callDeepSeekJSON(userPrompt: string): Promise<unknown | null> {
   try {
     const client = getDeepSeekClient();
     const response = await client.chat.completions.create({
-      model: "deepseek-chat",
+      model: DEEPSEEK_MODEL,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_INSTRUCTIONS },

@@ -1,4 +1,4 @@
-import { getDeepSeekClient } from "./deepseek";
+import { DEEPSEEK_MODEL, getDeepSeekClient } from "./deepseek";
 import {
   factComparisonResponseSchema,
   skeletonComparisonResponseSchema,
@@ -13,7 +13,7 @@ async function callDeepSeekComparison(
   try {
     const client = getDeepSeekClient();
     const response = await client.chat.completions.create({
-      model: "deepseek-chat",
+      model: DEEPSEEK_MODEL,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },

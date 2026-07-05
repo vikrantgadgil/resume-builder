@@ -1,7 +1,7 @@
-import { getDeepSeekClient } from "./deepseek";
+import { DEEPSEEK_MODEL, getDeepSeekClient } from "./deepseek";
 import { phraseBulletsResponseSchema } from "@/types/tailoring";
 
-const SYSTEM_INSTRUCTIONS = `You phrase resume facts as polished resume bullets for a specific job description. You are given the job description, important keywords, and a list of facts with stable ids. For each fact, rewrite it as a single concise resume bullet, naturally incorporating relevant keywords from the job description only where the underlying fact genuinely supports that keyword. You may shorten, reorder, or tighten the wording for concision. You must not add any claim, number, scope, employer, title, or skill that is not already present in the original fact text, and you must not invent an achievement or metric. If a fact does not benefit from rewording, you may return it close to unchanged. Respond with JSON only in this exact shape: { "bullets": [{ "factId": string, "phrasedText": string }] }, one entry per fact given, using the exact fact id given. No other text.`;
+const SYSTEM_INSTRUCTIONS = `You phrase resume facts as polished, job-description-adapted resume bullets. You are given the job description, important keywords and priorities extracted from it, and a list of facts with stable ids. For each fact, rewrite it as a single concise resume bullet that actively incorporates this job description's specific vocabulary, terminology, and priorities wherever the underlying fact genuinely supports that framing. Do not simply pass through the original wording unchanged: actively adapt phrasing, word choice, and emphasis toward this specific job description while keeping every underlying claim, number, and scope from the original fact intact. You may shorten, reorder, or tighten wording for concision. You must not add any claim, number, scope, employer, title, or skill that is not already present in the original fact text, and you must not invent an achievement or metric. Respond with JSON only in this exact shape: { "bullets": [{ "factId": string, "phrasedText": string }] }, one entry per fact given, using the exact fact id given. No other text.`;
 
 export type PhrasedBullet = { factId: string; phrasedText: string };
 
@@ -24,7 +24,7 @@ export async function phraseBullets(
   try {
     const client = getDeepSeekClient();
     const response = await client.chat.completions.create({
-      model: "deepseek-chat",
+      model: DEEPSEEK_MODEL,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_INSTRUCTIONS },

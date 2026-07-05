@@ -1,4 +1,4 @@
-import { getDeepSeekClient } from "./deepseek";
+import { DEEPSEEK_MODEL, getDeepSeekClient } from "./deepseek";
 import { roleAttachmentSuggestionResponseSchema } from "@/types/role-attachment";
 import type { AttachmentConfidence } from "@/types/profile";
 
@@ -28,7 +28,7 @@ export async function suggestRoleAttachments(
   try {
     const client = getDeepSeekClient();
     const response = await client.chat.completions.create({
-      model: "deepseek-chat",
+      model: DEEPSEEK_MODEL,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_INSTRUCTIONS },

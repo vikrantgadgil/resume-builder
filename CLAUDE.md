@@ -13,7 +13,7 @@ A single-user resume generation system. It stores a superset knowledge base of e
 - @react-pdf/renderer for PDF generation (client-side)
 - pdf-parse and mammoth for resume ingestion
 - compromise.js for keyword extraction
-- DeepSeek API (deepseek-chat) for content rewriting only
+- DeepSeek API (model identifier centralized in src/lib/ai/deepseek.ts) for content rewriting only
 - Zod for all LLM output validation
 - pnpm, Vercel deployment, Vercel Blob for archived PDFs
 
