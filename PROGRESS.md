@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 6.6 complete on branch phase-6-6-quality-and-synthesis. Not yet merged to main.
+Phase 6.7 complete on branch phase-6-7-post-gen-editing. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,25 @@ Phase 6.6 complete on branch phase-6-6-quality-and-synthesis. Not yet merged to 
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-05
+**Phase:** 6.7 - Post-generation editing
+**Branch:** phase-6-7-post-gen-editing
+
+**Completed:**
+- Folded PLAN-AMENDMENT-6.md into PLAN.md (new Phase 6.7 section between Phase 6.6 and Phase 7); PLAN-AMENDMENT-6.md deleted once merged
+- Added an editable text view (src/components/preview/ResumeGenerator.tsx) shown after any successful generation, open by default: one Textarea per role (bullets, one per line) plus one for Selected Highlights, all pre-filled with the AI-produced content. Header and skeleton fields stay read-only, never part of this view, consistent with hard rule 14
+- Edits are plain client-side React state (a "draft" derived from whatever was last rendered). Applying edits (the "Update PDF with edits" button) re-renders the PDF locally with @react-pdf/renderer and re-checks the page count, making zero network calls, so there is no code path by which an edit could reach the profile or facts tables. Verified structurally (only this one client component file changed this session, no API routes touched) and interactively (added a bullet in the edit view, downloaded the PDF, confirmed the addition appears only in the PDF and not in the saved facts list on the profile page)
+- The existing two-page limit check is reused for edited content: exceeding it blocks the download with a clear message ("Your edited content produces N pages...") instead of silently producing an over-length PDF or accepting the edit
+- Any unsaved edit (tracked via a draftDirty flag, set on every textarea change and cleared after a successful render) triggers a confirmation warning before the primary generate button or either optional-review regenerate action proceeds, so edits are never silently discarded; cancelling the warning leaves the edit and the current preview untouched
+- Verified against all four acceptance criteria: edited content downloads correctly, the underlying knowledge base is unchanged after an edit, editing past the two-page limit is caught and flagged before download, and attempting to regenerate after an unsaved edit produces a warning
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None.
+
+**Next step:** Open a new session for Phase 7 (ATS scoring). Merge phase-6-7-post-gen-editing into main first per the one-branch-per-phase rule.
 
 ---
 

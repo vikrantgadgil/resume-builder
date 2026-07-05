@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { ResumeDocument, type ResumeDocumentData } from "@/lib/pdf/ResumeDocument";
 import { countPdfPages } from "@/lib/pdf/count-pages";
 import {
@@ -14,8 +15,20 @@ import {
 } from "@/types/profile";
 
 const MAX_PAGES = 2;
+const UNSAVED_EDITS_WARNING =
+  "You have unsaved edits to the resume text that will be lost if you regenerate. Continue?";
 
 type PhrasedEntry = { original: string; phrasedText: string; usePhrased: boolean };
+
+type DraftRole = { roleId: string; roleLabel: string; bulletsText: string };
+type Draft = { roles: DraftRole[]; highlightsText: string };
+
+function linesFrom(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
 
 export function ResumeGenerator({
   jobDescription,
@@ -46,6 +59,11 @@ export function ResumeGenerator({
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [hasGenerated, setHasGenerated] = useState(false);
 
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [isApplyingEdits, setIsApplyingEdits] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/profile")
       .then((res) => res.json())
@@ -60,6 +78,11 @@ export function ResumeGenerator({
   }, []);
 
   const unattachedFacts = facts.filter((f) => !f.roleRef);
+
+  function confirmDiscardEditsIfNeeded(): boolean {
+    if (!draftDirty) return true;
+    return window.confirm(UNSAVED_EDITS_WARNING);
+  }
 
   // Runs the AI selection step fresh, always. Used by the primary action the
   // first time, and by the explicit "Suggest selection" action in the review
@@ -177,58 +200,97 @@ export function ResumeGenerator({
     }
   }
 
-  async function renderAndCount(
+  function buildResumeDocumentData(
     ids: Set<string>,
     bullets: Map<string, PhrasedEntry>,
-  ) {
+  ): ResumeDocumentData {
     function bulletTextFor(factId: string): string | null {
       const entry = bullets.get(factId);
       if (!entry) return null;
       return entry.usePhrased ? entry.phrasedText : entry.original;
     }
 
-    try {
-      const data: ResumeDocumentData = {
-        header,
-        roles: skeleton.roles.map((role) => ({
-          role,
-          bullets: facts
-            .filter((f) => f.roleRef === role.id && ids.has(f.id))
-            .map((f) => bulletTextFor(f.id))
-            .filter((text): text is string => text !== null),
-        })),
-        education: skeleton.education,
-        certifications: skeleton.certifications,
-        highlights: unattachedFacts
-          .filter((f) => ids.has(f.id))
+    return {
+      header,
+      roles: skeleton.roles.map((role) => ({
+        role,
+        bullets: facts
+          .filter((f) => f.roleRef === role.id && ids.has(f.id))
           .map((f) => bulletTextFor(f.id))
           .filter((text): text is string => text !== null),
-      };
+      })),
+      education: skeleton.education,
+      certifications: skeleton.certifications,
+      highlights: unattachedFacts
+        .filter((f) => ids.has(f.id))
+        .map((f) => bulletTextFor(f.id))
+        .filter((text): text is string => text !== null),
+    };
+  }
 
+  function draftFrom(data: ResumeDocumentData): Draft {
+    return {
+      roles: data.roles.map(({ role, bullets }) => ({
+        roleId: role.id,
+        roleLabel: `${role.title} at ${role.employer}`,
+        bulletsText: bullets.join("\n"),
+      })),
+      highlightsText: data.highlights.join("\n"),
+    };
+  }
+
+  async function renderDataAndUpdatePreview(
+    data: ResumeDocumentData,
+    onOverLimit: (pages: number) => void,
+    onError: () => void,
+  ): Promise<boolean> {
+    try {
       const blob = await pdf(<ResumeDocument data={data} />).toBlob();
       const pages = await countPdfPages(blob);
 
       if (pages > MAX_PAGES) {
-        setGenerateError(
-          `This selection produces ${pages} pages, which is over the ${MAX_PAGES} page limit. Expand "Review selection" below to remove a few facts and regenerate.`,
-        );
+        onOverLimit(pages);
         setPageCount(pages);
-        return;
+        return false;
       }
 
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(URL.createObjectURL(blob));
       setPageCount(pages);
+      return true;
     } catch {
-      setGenerateError(
-        "Could not generate the PDF. Check your selections and try again.",
-      );
+      onError();
+      return false;
+    }
+  }
+
+  async function renderAndCount(
+    ids: Set<string>,
+    bullets: Map<string, PhrasedEntry>,
+  ) {
+    const data = buildResumeDocumentData(ids, bullets);
+    const ok = await renderDataAndUpdatePreview(
+      data,
+      (pages) =>
+        setGenerateError(
+          `This selection produces ${pages} pages, which is over the ${MAX_PAGES} page limit. Expand "Review selection" below to remove a few facts and regenerate.`,
+        ),
+      () =>
+        setGenerateError(
+          "Could not generate the PDF. Check your selections and try again.",
+        ),
+    );
+    if (ok) {
+      setDraft(draftFrom(data));
+      setDraftDirty(false);
+      setEditError(null);
     }
   }
 
   // The single primary action: runs selection (if not already computed),
   // phrasing for whatever is selected, and renders the PDF, all in one go.
   async function handleGenerateTailored() {
+    if (!confirmDiscardEditsIfNeeded()) return;
     setIsGenerating(true);
     setGenerateError(null);
 
@@ -256,6 +318,7 @@ export function ResumeGenerator({
   }
 
   async function handleRegenerateFromSelection() {
+    if (!confirmDiscardEditsIfNeeded()) return;
     setIsGenerating(true);
     setGenerateError(null);
     try {
@@ -276,12 +339,63 @@ export function ResumeGenerator({
   }
 
   async function handleRegeneratePdfOnly() {
+    if (!confirmDiscardEditsIfNeeded()) return;
     setIsGenerating(true);
     setGenerateError(null);
     try {
       await renderAndCount(selectedFactIds, phrasedBullets);
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  function updateDraftRoleBullets(roleId: string, bulletsText: string) {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        roles: prev.roles.map((r) =>
+          r.roleId === roleId ? { ...r, bulletsText } : r,
+        ),
+      };
+    });
+    setDraftDirty(true);
+  }
+
+  function updateDraftHighlights(highlightsText: string) {
+    setDraft((prev) => (prev ? { ...prev, highlightsText } : prev));
+    setDraftDirty(true);
+  }
+
+  async function handleApplyEdits() {
+    if (!draft) return;
+    setIsApplyingEdits(true);
+    setEditError(null);
+
+    try {
+      const data: ResumeDocumentData = {
+        header,
+        roles: draft.roles.map((r) => ({
+          role: skeleton.roles.find((role) => role.id === r.roleId)!,
+          bullets: linesFrom(r.bulletsText),
+        })),
+        education: skeleton.education,
+        certifications: skeleton.certifications,
+        highlights: linesFrom(draft.highlightsText),
+      };
+
+      const ok = await renderDataAndUpdatePreview(
+        data,
+        (pages) =>
+          setEditError(
+            `Your edited content produces ${pages} pages, which is over the ${MAX_PAGES} page limit. Shorten your edits and try again.`,
+          ),
+        () =>
+          setEditError("Could not update the PDF. Check your edits and try again."),
+      );
+      if (ok) setDraftDirty(false);
+    } finally {
+      setIsApplyingEdits(false);
     }
   }
 
@@ -340,6 +454,58 @@ export function ResumeGenerator({
             className="h-[600px] w-full rounded-lg border border-zinc-300 dark:border-zinc-700"
           />
         </div>
+      )}
+
+      {draft && (
+        <details className="rounded-lg border border-zinc-300 p-3 dark:border-zinc-700" open>
+          <summary className="cursor-pointer text-sm font-medium">
+            Edit resume text{draftDirty ? " (unsaved edits)" : ""}
+          </summary>
+          <div className="mt-3 flex flex-col gap-4">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Edits here apply only to this tailored draft. They never change
+              your saved profile or facts. Employer, title, dates, degrees,
+              certifications, and contact info are not editable here.
+            </p>
+
+            {draft.roles.map((r) => (
+              <label key={r.roleId} className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">{r.roleLabel}</span>
+                <Textarea
+                  value={r.bulletsText}
+                  onChange={(e) =>
+                    updateDraftRoleBullets(r.roleId, e.target.value)
+                  }
+                  rows={Math.max(3, r.bulletsText.split("\n").length + 1)}
+                />
+              </label>
+            ))}
+
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Selected Highlights</span>
+              <Textarea
+                value={draft.highlightsText}
+                onChange={(e) => updateDraftHighlights(e.target.value)}
+                rows={Math.max(3, draft.highlightsText.split("\n").length + 1)}
+              />
+            </label>
+
+            <Button
+              size="sm"
+              onClick={handleApplyEdits}
+              disabled={isApplyingEdits || !draftDirty}
+              className="self-start"
+            >
+              {isApplyingEdits ? "Updating..." : "Update PDF with edits"}
+            </Button>
+
+            {editError && (
+              <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                {editError}
+              </p>
+            )}
+          </div>
+        </details>
       )}
 
       <details className="rounded-lg border border-zinc-300 p-3 dark:border-zinc-700">
