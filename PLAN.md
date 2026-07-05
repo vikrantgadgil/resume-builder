@@ -193,6 +193,22 @@ All existing hard rules apply unchanged throughout: Zod validation on every AI o
 
 Acceptance: reseed the knowledge base using the new multi-source synthesis flow with the same source resumes used in earlier testing, in a single pass rather than incrementally. Run the same real job description used in this session's testing through one-click generation. Verify no duplicate roles present, no near-duplicate facts selected together, meaningful bullet coverage across multiple relevant roles, phrasing that visibly incorporates JD-specific language beyond the original fact wording, and a full, well-used two pages rather than a sparse result, all while containing zero facts not traceable to the knowledge base.
 
+## Phase 6.7: Post-generation editing
+
+Branch: `phase-6-7-post-gen-editing`
+
+Phase 6.6 improved selection and phrasing quality meaningfully, but AI-generated output will never be perfect for every job description. This phase lets the user make small manual adjustments to the tailored resume after generation, before downloading the final PDF, without discarding the AI's work and starting over. Editing the rendered content directly, never the underlying knowledge base: the tailored resume is a derived, disposable-per-application artifact, and edits belong to that artifact only.
+
+- Add an editable text view for the tailored resume content (role bullets, unattached highlights) presented after generation, before final PDF download
+- Header and skeleton fields (employer, title, dates, degree, certification, contact info) remain read-only in this view, consistent with existing hard rule 14
+- Editing is plain text, per bullet or per section, not a rich text editor. No new formatting capability is introduced, consistent with the single ATS-safe template
+- Edits do not write back to the knowledge base (profile, facts tables); they apply only to the current tailored draft. This is manual editing by the user, not a new AI rewrite step, so no Zod validation is needed on the edit content since it is direct user input, not AI output
+- Enforce the two-page limit against edited content before allowing download, with a clear message if exceeded, consistent with the existing page-limit enforcement pattern from Phase 5 and Phase 6.6
+- The Phase 6.5 one-click flow still produces a complete PDF by default with zero required interaction; the edit capability is an additional optional step, available, not mandatory
+- If the user regenerates (for example, re-running with adjusted selection) after making edits, the new generation starts from a fresh AI pass and does not silently carry the edits forward. Warn the user before discarding unsaved edits if they attempt to regenerate
+
+Acceptance: after a one-click generation, the user can open an edit view, change wording in at least one bullet, and download a PDF reflecting that edit. The underlying knowledge base is confirmed unchanged after this edit (same fact text as before in the profile page). Editing content past the two-page limit is caught and clearly flagged before download. Attempting to regenerate after an unsaved edit produces a warning rather than silently discarding the edit.
+
 ## Phase 7: ATS scoring
 
 Branch: `phase-7-ats-scoring`
