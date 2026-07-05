@@ -165,6 +165,34 @@ Branch: `phase-6-5-oneclick-generation`
 
 Acceptance: pasting a job description and clicking a single generate action produces a complete, downloadable, two-page-compliant tailored PDF with no other required clicks. A user who wants to inspect or adjust the selection or phrasing before finalizing can still do so via the optional review steps. Regenerating after an adjustment does not require re-running unaffected earlier steps.
 
+## Phase 6.6: Model upgrade, multi-source synthesis, and generation quality
+
+Branch: `phase-6-6-quality-and-synthesis`
+
+Real-data testing after Phase 6.5 showed this tool's one-click output was noticeably weaker than pasting resumes directly into a frontier chat model: duplicate roles still present, redundant near-identical facts selected instead of diverse ones, several roles with attached facts received no bullets at all, and phrasing read as passthrough of the original fact text with no adaptation to the target JD. This phase addresses three interdependent parts together in one session, since testing generation quality meaningfully requires the improved ingestion to have run first.
+
+Part 1, model upgrade:
+- Replace deepseek-chat with the current correct DeepSeek model identifier in all runtime AI calls (extraction, reconciliation, selection, phrasing, attachment suggestion), verified against DeepSeek's official API documentation at the time of the session rather than assumed
+- Centralize the model reference in one place in the codebase so future model changes are a one-line edit
+
+Part 2, multi-source synthesis ingestion:
+- Allow uploading multiple resume files (and optionally pasted freeform text) together in one intake action, not one file per import cycle
+- Send all source material to DeepSeek in one synthesis pass, instructed to produce a single coherent skeleton and fact pool across all sources at once, performing deduplication and role attachment as part of that synthesis rather than as a separate later reconciliation step
+- This replaces the incremental merge-then-reconcile pattern from Phases 3.5 and 3.6 for the initial seeding case only. The existing single-resume import path remains available for adding one new document later to an already-established knowledge base, still going through review before save
+- Still ends in a single review screen (proposed skeleton, proposed facts with role attachments), Zod validated, user approves before save
+- If combined source material exceeds a reasonable single-request size, chunk sensibly (for example by source document) but still aim for one coherent synthesis output, not independent per-document extractions merged mechanically afterward
+
+Part 3, generation quality fixes:
+- Selection must recognize and avoid choosing multiple near-duplicate facts making the same underlying claim, preferring the single best-phrased or most specific version and using the freed budget for coverage elsewhere
+- Selection must aim for reasonable coverage across roles that have relevant attached facts for the given JD, not concentrate almost entirely on one role while leaving others with attached, relevant facts unused
+- Phrasing must actually rewrite selected facts to naturally incorporate the JD's specific vocabulary and priorities where genuinely supported by the underlying fact; passthrough of original fact text with no adaptation is a bug
+- The generated resume should make full, reasonable use of the two-page budget when sufficient relevant material exists, rather than producing a sparse result when richer attached content is available
+- No invented facts rule remains unchanged and enforced throughout: phrasing may rewrite for concision and keyword fit but must not add claims, numbers, or scope beyond the original fact
+
+All existing hard rules apply unchanged throughout: Zod validation on every AI output, unresolved or fallback behavior on validation failure rather than silent acceptance, user review and approval before any save, no fabricated facts at any step, skeleton fields render from the database only and are never LLM-editable content.
+
+Acceptance: reseed the knowledge base using the new multi-source synthesis flow with the same source resumes used in earlier testing, in a single pass rather than incrementally. Run the same real job description used in this session's testing through one-click generation. Verify no duplicate roles present, no near-duplicate facts selected together, meaningful bullet coverage across multiple relevant roles, phrasing that visibly incorporates JD-specific language beyond the original fact wording, and a full, well-used two pages rather than a sparse result, all while containing zero facts not traceable to the knowledge base.
+
 ## Phase 7: ATS scoring
 
 Branch: `phase-7-ats-scoring`
