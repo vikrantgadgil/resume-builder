@@ -2,7 +2,7 @@
 
 ## Current status
 
-Phase 6 complete on branch phase-6-ai-tailoring. Not yet merged to main.
+Phase 6.5 complete on branch phase-6-5-oneclick-generation. Not yet merged to main.
 
 ## Session log
 
@@ -14,6 +14,24 @@ Phase 6 complete on branch phase-6-ai-tailoring. Not yet merged to main.
 **Completed:**
 **Blockers:**
 **Next step:**
+
+---
+
+**Date:** 2026-07-04
+**Phase:** 6.5 - One-click generation flow
+**Branch:** phase-6-5-oneclick-generation
+
+**Completed:**
+- Folded PLAN-AMENDMENT-4.md into PLAN.md (new Phase 6.5 section between Phase 6 and Phase 7); PLAN-AMENDMENT-4.md deleted once merged
+- Rewrote src/components/preview/ResumeGenerator.tsx into a one-click flow: a single "Generate tailored resume" button runs selection, phrasing, and PDF rendering automatically end to end, with no intermediate click required. No change to the underlying selection logic (src/lib/ai/select-facts.ts), phrasing logic (src/lib/ai/phrase-bullets.ts), or PDF rendering (src/lib/pdf/ResumeDocument.tsx) built in Phase 6, this was a UX and flow change only
+- The Phase 6 checklist and phrasing diff are retained as two collapsed-by-default `<details>` panels, "Review selection" and "Review phrasing," expandable before or after the default one-click generation completes
+- Regeneration after an adjustment reuses unaffected earlier steps rather than restarting the pipeline: adjusting the selection checklist and clicking "Regenerate from this selection" only phrases facts not already cached (tracked in a factId-to-phrasing map that is merged into, never cleared), then re-renders; adjusting a phrasing toggle and clicking "Regenerate PDF with these choices" only re-renders, no API calls at all
+- Expanding "Review selection" exposes an explicit "Suggest selection" or "Re-suggest selection" action for a fresh AI call on demand, independent of the primary one-click path, satisfying the requirement that the review path work whether opened before or after default generation
+- `pnpm build` verified clean with zero TypeScript errors
+
+**Blockers:** None.
+
+**Next step:** Open a new session for Phase 7 (ATS scoring), or address any further amendments first. Merge phase-6-5-oneclick-generation into main first per the one-branch-per-phase rule.
 
 ---
 
